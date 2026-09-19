@@ -50,10 +50,24 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
-		<!-- LLM provider. Only one chat provider on the classpath so ChatClient.Builder is unambiguous. -->
+		<!-- LLM providers. All three are on the classpath; exactly one chat model is activated by
+		     spring.ai.model.chat (see application.properties / AI_PROVIDER), so ChatClient.Builder stays unambiguous. -->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-model-google-genai</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-model-anthropic</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-starter-model-openai</artifactId>
+		</dependency>
+		<!-- PDF text extraction for the document agent (Apache PDFBox under the hood) -->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-pdf-document-reader</artifactId>
 		</dependency>
 
 		<dependency>
