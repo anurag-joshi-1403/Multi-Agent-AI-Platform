@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#151923"/>
+      <stop offset="1" stop-color="#0b0d12"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a89dff"/>
+      <stop offset="1" stop-color="#5b8cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="160" height="160" rx="36" fill="url(#bg)"/>
+  <rect x="1" y="1" width="158" height="158" rx="35" fill="none" stroke="#303850" stroke-width="2"/>
+  <!-- links -->
+  <g stroke="#8b7cff" stroke-width="4" stroke-linecap="round" opacity=".55">
+    <path d="M52 52 68 68M108 52 92 68M52 108 68 92M108 108 92 92"/>
+  </g>
+  <!-- agents -->
+  <circle cx="40" cy="40" r="14" fill="#34d399"/>
+  <circle cx="120" cy="40" r="14" fill="#fbbf24"/>
+  <circle cx="40" cy="120" r="14" fill="#60a5fa"/>
+  <circle cx="120" cy="120" r="14" fill="#f472b6"/>
+  <!-- orchestrator -->
+  <circle cx="80" cy="80" r="22" fill="url(#core)"/>
+  <circle cx="80" cy="80" r="22" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="2"/>
+  <path d="M71 84c2 4 5 6 9 6s7-2 9-6" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="73" cy="75" r="2.6" fill="#fff"/>
+  <circle cx="87" cy="75" r="2.6" fill="#fff"/>
+</svg>
