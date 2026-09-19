@@ -1190,7 +1190,7 @@
 }
 .chat-thread-inner {
   width: 100%;
-  max-width: 820px;
+  max-width: 1080px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -1222,8 +1222,15 @@
   color: var(--text);
 }
 .msg-body {
-  max-width: 78%;
   min-width: 0;
+}
+/* Prompts stay compact and visually distinct; replies get real room for long text and code. */
+.msg.user .msg-body {
+  max-width: 72%;
+}
+.msg.agent .msg-body,
+.msg.error .msg-body {
+  max-width: 92%;
 }
 .msg-bubble {
   position: relative;
@@ -1232,7 +1239,7 @@
   background: var(--bg-panel);
   border: 1px solid var(--border);
   overflow-wrap: anywhere;
-  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s, background-color 0.25s ease;
 }
 .msg.agent .msg-bubble {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
@@ -1241,10 +1248,24 @@
   box-shadow: 0 6px 18px -8px var(--accent);
 }
 
-.msg-copy {
+/* Copy + Edit sit together as one hover-revealed action group, top-right of the bubble. */
+.msg-bubble-actions {
   position: absolute;
   top: 6px;
   right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.15s, transform 0.15s;
+}
+.msg-bubble:hover .msg-bubble-actions,
+.msg-bubble-actions:focus-within,
+.msg-action.copied {
+  opacity: 1;
+  transform: translateY(0);
+}
+.msg-action {
   width: 24px;
   height: 24px;
   border-radius: 6px;
@@ -1253,31 +1274,23 @@
   color: var(--text-faint);
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  opacity: 0;
-  transform: translateY(-2px);
-  transition: opacity 0.15s, transform 0.15s, color 0.15s, background 0.15s;
+  transition: color 0.15s, background 0.15s;
 }
-.msg-bubble:hover .msg-copy,
-.msg-copy:focus-visible,
-.msg-copy.copied {
-  opacity: 1;
-  transform: translateY(0);
-}
-.msg-copy:hover {
+.msg-action:hover {
   color: var(--text);
   background: var(--bg-hover);
 }
-.msg-copy.copied {
+.msg-action.copied {
   color: var(--ok);
   border-color: var(--ok-soft);
   background: var(--ok-soft);
 }
-.msg.user .msg-copy {
+.msg.user .msg-action {
   background: rgba(0, 0, 0, 0.25);
   border-color: transparent;
   color: rgba(255, 255, 255, 0.8);
 }
-.msg.user .msg-copy:hover {
+.msg.user .msg-action:hover {
   color: #fff;
   background: rgba(0, 0, 0, 0.4);
 }
@@ -1315,6 +1328,9 @@
 .msg.user .msg-meta {
   justify-content: flex-end;
 }
+.msg-edited-tag {
+  font-style: italic;
+}
 .msg-bubble.selectable {
   cursor: pointer;
 }
@@ -1332,10 +1348,46 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Inline prompt-editing box, replacing the bubble while a user message is being edited. */
+.msg-edit-box {
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--bg-panel);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.msg-edit-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.msg-edit-box textarea {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  resize: none;
+  min-height: 48px;
+  max-height: 320px;
+  padding: 2px 0;
+  outline: none;
+  line-height: 1.5;
+  color: var(--text);
+  font-size: 14px;
+}
+.msg-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* light markdown rendering */
 .md p + p,
-.md p + pre,
-.md pre + p,
+.md p + .md-code,
+.md-code + p,
 .md ul + p,
 .md p + ul,
 .md ol + p,
@@ -1344,19 +1396,78 @@
 .md p + blockquote {
   margin-top: 10px;
 }
-.md pre {
+/* Fenced code block: language chip + its own copy button above the code, independent of the
+   message-level copy/edit actions. */
+.md-code {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  overflow: hidden;
+}
+.md-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-hover);
+}
+.md-code-lang {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: capitalize;
+  color: var(--text-faint);
+}
+.md-code-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.md-code-copy:hover {
+  color: var(--text);
+  background: var(--bg-elev);
+  border-color: var(--border);
+}
+.md-code-copy.copied {
+  color: var(--ok);
+}
+.md-code pre {
   margin: 0;
   padding: 12px 14px;
-  border-radius: 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   overflow: auto;
   font-size: 12.5px;
   line-height: 1.55;
 }
-.msg.user .md pre {
+.msg.user .md-code {
   background: rgba(0, 0, 0, 0.25);
   border-color: transparent;
+}
+.msg.user .md-code-head {
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+}
+.msg.user .md-code-lang,
+.msg.user .md-code-copy {
+  color: rgba(255, 255, 255, 0.75);
+}
+.msg.user .md-code-copy:hover {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.msg.user .md-code pre {
   color: #fff;
 }
 .md code:not(pre code) {
@@ -1416,7 +1527,7 @@
   padding: 14px 20px 16px;
 }
 .composer-inner {
-  max-width: 820px;
+  max-width: 1080px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -1709,7 +1820,9 @@
   .conv-item {
     min-width: 180px;
   }
-  .msg-body {
+  .msg.user .msg-body,
+  .msg.agent .msg-body,
+  .msg.error .msg-body {
     max-width: 92%;
   }
   .chat-head {

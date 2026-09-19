@@ -1,10 +1,37 @@
 import { Fragment } from 'react'
 import type { ReactNode } from 'react'
+import { IconCheck, IconCopy } from './Icons'
+import { useCopy } from '../hooks/useCopy'
 
 /**
  * Deliberately tiny markdown renderer: fenced code, inline code, bold, lists,
  * blockquotes, paragraphs. Output is plain React elements — no innerHTML.
  */
+
+/** A fenced code block with a language chip and its own copy button (independent of the message-level copy). */
+function CodeBlock({ lang, body }: { lang: string; body: string }) {
+  const [copied, copy] = useCopy()
+  return (
+    <div className="md-code">
+      <div className="md-code-head">
+        <span className="md-code-lang">{lang || 'code'}</span>
+        <button
+          type="button"
+          className={`md-code-copy ${copied ? 'copied' : ''}`}
+          onClick={() => copy(body)}
+          aria-label={copied ? 'Copied' : 'Copy code'}
+          title={copied ? 'Copied!' : 'Copy code'}
+        >
+          {copied ? <IconCheck width={12} height={12} /> : <IconCopy width={12} height={12} />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre data-lang={lang || undefined}>
+        <code>{body}</code>
+      </pre>
+    </div>
+  )
+}
 
 function inline(text: string): ReactNode[] {
   const out: ReactNode[] = []
@@ -90,11 +117,8 @@ export function Markdown({ source }: { source: string }) {
       {blocks.map((b, idx) => {
         switch (b.type) {
           case 'code':
-            return (
-              <pre key={idx} data-lang={b.lang || undefined}>
-                <code>{b.body}</code>
-              </pre>
-            )
+            return <CodeBlock key={idx} lang={b.lang} body={b.body} />
+
           case 'ul':
             return (
               <ul key={idx}>

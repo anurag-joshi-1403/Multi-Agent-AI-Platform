@@ -70,6 +70,8 @@ export interface ChatMessage {
   elapsedMs?: number
   /** Attributes that were sent with a user message, if any. */
   attributes?: Record<string, unknown>
+  /** Set when a user message has been edited-and-resent; shows an "(edited)" tag. */
+  editedAt?: number
 }
 
 export interface Conversation {

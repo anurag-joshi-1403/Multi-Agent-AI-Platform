@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { useAgents } from './hooks/useAgents'
+import { useAutoCollapseOnRoute } from './hooks/useAutoCollapseOnRoute'
 import { useBackendStatus } from './hooks/useBackendStatus'
 import { useConversations } from './hooks/useConversations'
 import { useHashRoute } from './hooks/useHashRoute'
 import { usePlatform } from './hooks/usePlatform'
-import { useSidebar } from './hooks/useSidebar'
 import { useTheme } from './hooks/useTheme'
 import { AgentsPage } from './pages/AgentsPage'
 import { OverviewPage } from './pages/OverviewPage'
@@ -16,7 +16,7 @@ import './app.css'
 function App() {
   const [route, navigate] = useHashRoute()
   const [theme, toggleTheme] = useTheme()
-  const [sidebarCollapsed, toggleSidebar] = useSidebar()
+  const [sidebarCollapsed, toggleSidebar] = useAutoCollapseOnRoute(route)
   const { agents, loading, reload } = useAgents()
   const conversations = useConversations()
   const status = useBackendStatus()

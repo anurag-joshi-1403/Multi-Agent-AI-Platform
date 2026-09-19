@@ -9,6 +9,7 @@ import { MessageBubble } from '../components/MessageBubble'
 import { forgetConversation } from '../api/client'
 import type { ConversationsApi } from '../hooks/useConversations'
 import { useDocuments } from '../hooks/useDocuments'
+import { agentThemeStyle } from '../lib/agentColor'
 import { buildAttributes } from '../lib/attributes'
 import type { ParameterValues } from '../lib/attributes'
 import { dispatchMessage } from '../lib/dispatch'
@@ -129,14 +130,10 @@ export function PlaygroundPage({
     return created
   }
 
-  async function send(text: string, attributes: Record<string, unknown>) {
-    if (!agentId) return
-    const conv = active ?? startConversation()
-    const convId = conv.id
-
+  async function runDispatch(convId: string, targetAgentId: string, text: string, attributes: Record<string, unknown>, opts?: { replaceMessageId?: string }) {
     setPending((p) => new Set(p).add(convId))
     try {
-      await dispatchMessage(conversations, convId, conv.agentId, text, attributes)
+      await dispatchMessage(conversations, convId, targetAgentId, text, attributes, opts)
     } finally {
       setPending((p) => {
         const next = new Set(p)
@@ -144,6 +141,20 @@ export function PlaygroundPage({
         return next
       })
     }
+  }
+
+  async function send(text: string, attributes: Record<string, unknown>) {
+    if (!agentId) return
+    const conv = active ?? startConversation()
+    await runDispatch(conv.id, conv.agentId, text, attributes)
+  }
+
+  /** Edit a previously-sent prompt: drop the stale reply after it, then resend with the new text. */
+  async function editMessage(messageId: string, text: string) {
+    if (!active) return
+    const original = active.messages.find((m) => m.id === messageId)
+    conversations.truncateAfter(active.id, messageId)
+    await runDispatch(active.id, active.agentId, text, original?.attributes ?? {}, { replaceMessageId: messageId })
   }
 
   function changeAgent(nextId: string) {
@@ -174,7 +185,11 @@ export function PlaygroundPage({
         onDelete={deleteConversation}
       />
 
-      <section className="chat" aria-label="Chat">
+      <section
+        className="chat"
+        aria-label="Chat"
+        style={agent ? (agentThemeStyle(agent.id) as CSSProperties) : undefined}
+      >
         <header className="chat-head">
           {agent && (
             <div key={agent.id} className="pop-in">
@@ -260,6 +275,7 @@ export function PlaygroundPage({
                   agent={agents.find((a) => a.id === m.agentId)}
                   selected={selectedMessage?.id === m.id}
                   onSelect={selectMessage}
+                  onEdit={editMessage}
                 />
               ))
             )}

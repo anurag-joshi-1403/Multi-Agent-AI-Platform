@@ -10,6 +10,10 @@ export interface ConversationsApi {
   rename: (id: string, title: string) => void
   setAgent: (id: string, agentId: string) => void
   appendMessage: (id: string, message: ChatMessage) => void
+  /** Replaces a message's content in place and stamps `editedAt` (used by edit-and-resend). */
+  updateMessage: (id: string, messageId: string, patch: { content: string; editedAt: number }) => void
+  /** Drops every message after (not including) `messageId` — clears the stale reply before a resend. */
+  truncateAfter: (id: string, messageId: string) => void
   clearAll: () => void
 }
 
@@ -72,7 +76,27 @@ export function useConversations(): ConversationsApi {
     [patch],
   )
 
+  const updateMessage = useCallback(
+    (id: string, messageId: string, messagePatch: { content: string; editedAt: number }) =>
+      patch(id, (c) => ({
+        ...c,
+        messages: c.messages.map((m) => (m.id === messageId ? { ...m, ...messagePatch } : m)),
+        updatedAt: messagePatch.editedAt,
+      })),
+    [patch],
+  )
+
+  const truncateAfter = useCallback(
+    (id: string, messageId: string) =>
+      patch(id, (c) => {
+        const idx = c.messages.findIndex((m) => m.id === messageId)
+        if (idx < 0) return c
+        return { ...c, messages: c.messages.slice(0, idx + 1), updatedAt: Date.now() }
+      }),
+    [patch],
+  )
+
   const clearAll = useCallback(() => setConversations([]), [])
 
-  return { conversations, create, remove, rename, setAgent, appendMessage, clearAll }
+  return { conversations, create, remove, rename, setAgent, appendMessage, updateMessage, truncateAfter, clearAll }
 }

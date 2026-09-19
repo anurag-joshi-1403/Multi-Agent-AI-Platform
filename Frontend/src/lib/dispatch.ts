@@ -2,9 +2,15 @@ import { runAgent } from '../api/client'
 import type { ConversationsApi } from '../hooks/useConversations'
 import { uid } from './util'
 
+export interface DispatchOptions {
+  /** When set, edits this existing user message in place instead of appending a new one (edit-and-resend). */
+  replaceMessageId?: string
+}
+
 /**
- * Append the user's message, run the agent, then append either the agent's
- * reply (with measured round-trip latency) or an error message. Never throws.
+ * Append the user's message (or, with `opts.replaceMessageId`, edit an existing one in place), run
+ * the agent, then append either the agent's reply (with measured round-trip latency) or an error
+ * message. Never throws.
  */
 export async function dispatchMessage(
   conversations: ConversationsApi,
@@ -12,14 +18,19 @@ export async function dispatchMessage(
   agentId: string,
   text: string,
   attributes: Record<string, unknown>,
+  opts?: DispatchOptions,
 ): Promise<void> {
-  conversations.appendMessage(conversationId, {
-    id: uid(),
-    role: 'user',
-    content: text,
-    createdAt: Date.now(),
-    attributes,
-  })
+  if (opts?.replaceMessageId) {
+    conversations.updateMessage(conversationId, opts.replaceMessageId, { content: text, editedAt: Date.now() })
+  } else {
+    conversations.appendMessage(conversationId, {
+      id: uid(),
+      role: 'user',
+      content: text,
+      createdAt: Date.now(),
+      attributes,
+    })
+  }
 
   const started = performance.now()
   try {

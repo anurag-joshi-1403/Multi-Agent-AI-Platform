@@ -104,7 +104,7 @@ export function Composer({ disabled, busy, placeholder, parameters, values, onVa
                     <select id={id} className="select" value={value || String(p.defaultValue ?? '')} onChange={(e) => setValue(p.name, e.target.value)}>
                       {p.options.map((o) => (
                         <option key={o} value={o}>
-                          {o}
+                          {o === '' ? 'Auto-detect' : o}
                         </option>
                       ))}
                     </select>
