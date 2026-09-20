@@ -3,7 +3,7 @@ export interface AgentParameter {
   name: string
   label: string
   description: string
-  type: 'STRING' | 'NUMBER' | 'SELECT' | 'DOCUMENT'
+  type: 'STRING' | 'NUMBER' | 'SELECT'
   required: boolean
   options: string[]
   defaultValue: string | number | null
@@ -57,6 +57,12 @@ export interface PlatformStatus {
   documents: { stored: number; maxStored: number; maxContextChars: number }
 }
 
+/** A file uploaded to the backend and attached to a message. */
+export interface Attachment {
+  id: string
+  name: string
+}
+
 export type MessageRole = 'user' | 'agent' | 'error'
 
 export interface ChatMessage {
@@ -70,6 +76,8 @@ export interface ChatMessage {
   elapsedMs?: number
   /** Attributes that were sent with a user message, if any. */
   attributes?: Record<string, unknown>
+  /** Files attached to this user message; they stay in context for the rest of the conversation. */
+  attachments?: Attachment[]
   /** Set when a user message has been edited-and-resent; shows an "(edited)" tag. */
   editedAt?: number
 }
