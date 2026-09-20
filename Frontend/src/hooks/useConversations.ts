@@ -8,7 +8,6 @@ export interface ConversationsApi {
   create: (agentId: string) => Conversation
   remove: (id: string) => void
   rename: (id: string, title: string) => void
-  setAgent: (id: string, agentId: string) => void
   appendMessage: (id: string, message: ChatMessage) => void
   /** Replaces a message's content in place and stamps `editedAt` (used by edit-and-resend). */
   updateMessage: (id: string, messageId: string, patch: { content: string; editedAt: number }) => void
@@ -57,11 +56,6 @@ export function useConversations(): ConversationsApi {
     [patch],
   )
 
-  const setAgent = useCallback(
-    (id: string, agentId: string) => patch(id, (c) => ({ ...c, agentId })),
-    [patch],
-  )
-
   const appendMessage = useCallback(
     (id: string, message: ChatMessage) =>
       patch(id, (c) => {
@@ -98,5 +92,5 @@ export function useConversations(): ConversationsApi {
 
   const clearAll = useCallback(() => setConversations([]), [])
 
-  return { conversations, create, remove, rename, setAgent, appendMessage, updateMessage, truncateAfter, clearAll }
+  return { conversations, create, remove, rename, appendMessage, updateMessage, truncateAfter, clearAll }
 }
