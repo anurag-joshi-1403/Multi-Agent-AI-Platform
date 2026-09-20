@@ -24,9 +24,7 @@ public record AgentParameter(String name, String label, String description, Type
 		/** Integer. */
 		NUMBER,
 		/** One of {@link #options}. */
-		SELECT,
-		/** Id of a document uploaded via {@code /api/documents}. */
-		DOCUMENT
+		SELECT
 	}
 
 	public AgentParameter {
@@ -48,9 +46,5 @@ public record AgentParameter(String name, String label, String description, Type
 	public static AgentParameter select(String name, String label, String description, List<String> options,
 			String defaultValue) {
 		return new AgentParameter(name, label, description, Type.SELECT, false, options, defaultValue);
-	}
-
-	public static AgentParameter document(String name, String label, String description) {
-		return new AgentParameter(name, label, description, Type.DOCUMENT, true, List.of(), null);
 	}
 }
