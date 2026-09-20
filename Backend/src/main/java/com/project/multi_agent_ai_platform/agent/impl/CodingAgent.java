@@ -14,6 +14,7 @@ import com.project.multi_agent_ai_platform.agent.core.AgentParameter;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
+import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 
 /** Writes, explains and refactors code. Honours an optional {@code language} attribute. */
 @Component
@@ -29,8 +30,8 @@ public class CodingAgent extends LlmAgent {
 
 	private static final Pattern FENCE = Pattern.compile("```([A-Za-z0-9+#._-]+)");
 
-	public CodingAgent(ChatClient.Builder builder, ChatMemory chatMemory) {
-		super(builder, chatMemory, SYSTEM_PROMPT);
+	public CodingAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments) {
+		super(builder, chatMemory, attachments, SYSTEM_PROMPT);
 	}
 
 	@Override
@@ -64,7 +65,8 @@ public class CodingAgent extends LlmAgent {
 		String language = attribute(request, "language");
 		String message = language == null
 				? request.message()
-				: "Target language: " + language + "\n\n" + request.message();
+				: "Answer in " + language + ". Every code block in your reply must be " + language
+						+ ", tagged as such, even if the question mentions another language.\n\n" + request.message();
 
 		Completion completion = complete(request, message);
 
