@@ -13,34 +13,27 @@ import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.core.InvalidAgentRequestException;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
-import com.project.multi_agent_ai_platform.config.PlatformProperties;
-import com.project.multi_agent_ai_platform.document.DocumentStore;
+import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 import com.project.multi_agent_ai_platform.document.StoredDocument;
 
 /**
- * Answers questions grounded in an uploaded document. The caller uploads via
- * {@code POST /api/documents} and passes the returned id as the {@code documentId} attribute.
- * The document text travels in the per-call system prompt, so conversation memory stays small.
+ * Answers questions grounded in the files attached to the conversation. Attachments are uploaded
+ * via {@code POST /api/documents} and their ids passed in the {@code attachments} attribute, which
+ * {@link LlmAgent} folds into the per-call system prompt. This agent adds the guarantee that it
+ * refuses to answer without one.
  */
 @Component
 public class DocumentAgent extends LlmAgent {
 
 	static final String SYSTEM_PROMPT = """
-			You answer questions strictly from the document provided below.
+			You answer questions strictly from the files attached to this conversation.
 			- Quote the relevant passage briefly (with its page marker when present) before answering.
-			- If the document does not contain the answer, say exactly that; do not guess from outside knowledge.
+			- If the attached files do not contain the answer, say exactly that; do not guess from outside knowledge.
 			- Be concise.
 			""";
 
-	private final DocumentStore documents;
-
-	private final int maxContextChars;
-
-	public DocumentAgent(ChatClient.Builder builder, ChatMemory chatMemory, DocumentStore documents,
-			PlatformProperties properties) {
-		super(builder, chatMemory, SYSTEM_PROMPT);
-		this.documents = documents;
-		this.maxContextChars = properties.documents().maxContextChars();
+	public DocumentAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments) {
+		super(builder, chatMemory, attachments, SYSTEM_PROMPT);
 	}
 
 	@Override
@@ -50,7 +43,7 @@ public class DocumentAgent extends LlmAgent {
 
 	@Override
 	public String description() {
-		return "Answers questions grounded in an uploaded PDF or text document (pass documentId in attributes).";
+		return "Answers questions grounded in the PDF or text files you attach to the message.";
 	}
 
 	@Override
@@ -60,37 +53,22 @@ public class DocumentAgent extends LlmAgent {
 
 	@Override
 	public List<AgentParameter> parameters() {
-		return List.of(AgentParameter.document("documentId", "Document",
-				"An uploaded PDF or text file to answer from."));
+		return List.of();
 	}
 
 	@Override
 	public AgentResponse handle(AgentRequest request) {
-		String documentId = attribute(request, "documentId");
-		if (documentId == null) {
+		List<StoredDocument> attached = attached(request);
+		if (attached.isEmpty()) {
 			throw new InvalidAgentRequestException(
-					"The document agent needs a documentId attribute. Upload a file to POST /api/documents first.");
+					"The document agent needs at least one attached file. Attach a PDF or text file to your message.");
 		}
-		StoredDocument document = documents.get(documentId);
 
-		String text = document.content();
-		boolean truncated = text.length() > maxContextChars;
-		if (truncated) {
-			text = text.substring(0, maxContextChars);
-		}
-		String system = SYSTEM_PROMPT + "\n--- DOCUMENT: " + document.name() + (truncated ? " (truncated)" : "")
-				+ " ---\n" + text + "\n--- END OF DOCUMENT ---";
-
-		Completion completion = complete(request, request.message(), system);
+		Completion completion = complete(request, request.message());
 
 		Map<String, Object> metadata = new LinkedHashMap<>(completion.metadata());
-		metadata.put("documentId", document.id());
-		metadata.put("documentName", document.name());
-		if (document.pages() != null) {
-			metadata.put("pages", document.pages());
-		}
-		metadata.put("contextChars", text.length());
-		metadata.put("truncated", truncated);
+		metadata.put("documentIds", attached.stream().map(StoredDocument::id).toList());
+		metadata.put("documentNames", attached.stream().map(StoredDocument::name).toList());
 		return new AgentResponse(id(), completion.content(), metadata);
 	}
 }
