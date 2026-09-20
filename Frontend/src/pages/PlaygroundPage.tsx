@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { AgentAvatar } from '../components/AgentAvatar'
 import { Composer } from '../components/Composer'
 import { ConversationList } from '../components/ConversationList'
-import { IconArrowDown, IconPanelRight, IconSpark } from '../components/Icons'
+import { IconArrowDown, IconPanelRight, IconPlus, IconSpark } from '../components/Icons'
 import { Inspector } from '../components/Inspector'
 import { MessageBubble } from '../components/MessageBubble'
 import { forgetConversation } from '../api/client'
@@ -157,9 +157,17 @@ export function PlaygroundPage({
     await runDispatch(active.id, active.agentId, text, original?.attributes ?? {}, { replaceMessageId: messageId })
   }
 
+  /** Each agent keeps its own threads, so picking a different one always opens a fresh chat. */
   function changeAgent(nextId: string) {
-    if (active) conversations.setAgent(active.id, nextId)
-    else onDraftAgentChange(nextId)
+    onDraftAgentChange(nextId)
+    onOpenConversation(undefined)
+  }
+
+  /** Blank chat with the agent you are on — without the draft the id would fall back to `agents[0]`. */
+  function newChat() {
+    // Guard the empty id: `??` would not fall through it, pinning the page to no agent.
+    if (agentId) onDraftAgentChange(agentId)
+    onOpenConversation(undefined)
   }
 
   function selectMessage(messageId: string) {
@@ -167,9 +175,13 @@ export function PlaygroundPage({
   }
 
   function deleteConversation(id: string) {
+    const doomed = conversations.conversations.find((c) => c.id === id)
     conversations.remove(id)
     void forgetConversation(id)
-    if (id === conversationId) onOpenConversation(undefined)
+    if (id === conversationId) {
+      if (doomed) onDraftAgentChange(doomed.agentId)
+      onOpenConversation(undefined)
+    }
   }
 
   const suggestions = SUGGESTIONS[agentId] ?? ['Give me three ideas for a weekend project', 'Explain what this platform does']
@@ -178,10 +190,10 @@ export function PlaygroundPage({
     <div className={`playground ${showInspector ? '' : 'no-inspector'}`}>
       <ConversationList
         conversations={conversations.conversations}
-        agents={agents}
+        agent={agent}
         activeId={conversationId}
         onSelect={(id) => onOpenConversation(id)}
-        onNew={() => onOpenConversation(undefined)}
+        onNew={newChat}
         onDelete={deleteConversation}
       />
 
@@ -215,6 +227,15 @@ export function PlaygroundPage({
             </label>
             <span className="small muted chat-head-desc">{agent?.description}</span>
           </div>
+          <button
+            type="button"
+            className="btn btn-sm new-chat-btn"
+            onClick={newChat}
+            disabled={!active}
+            title={agent ? `Start a new chat with ${agent.name}` : 'Start a new chat'}
+          >
+            <IconPlus width={15} height={15} /> <span>New chat</span>
+          </button>
           <button
             type="button"
             className={`btn btn-ghost btn-sm inspector-toggle ${showInspector ? 'active' : ''}`}
