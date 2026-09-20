@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { AgentAvatar } from './AgentAvatar'
-import { IconCheck, IconCopy, IconEdit, IconX } from './Icons'
+import { IconCheck, IconCopy, IconEdit, IconFile, IconX } from './Icons'
 import { Markdown } from './Markdown'
 import { useCopy } from '../hooks/useCopy'
 import { formatMs } from '../lib/util'
@@ -73,6 +73,18 @@ export function MessageBubble({ message, agent, selected, onSelect, onEdit }: Pr
         <AgentAvatar id={message.agentId ?? 'agent'} name={agent?.name} size="sm" />
       )}
       <div className="msg-body">
+        {!!message.attachments?.length && (
+          <div className="msg-attachments">
+            {message.attachments.map((a) => (
+              <span key={a.id} className="attach-chip static">
+                <IconFile width={12} height={12} />
+                <span className="attach-chip-name" title={a.name}>
+                  {a.name}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
         {editing ? (
           <div className="msg-edit-box">
             <textarea

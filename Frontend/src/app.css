@@ -1867,67 +1867,111 @@
 /* ============================================================
    Agent options (parameter controls above the composer)
    ============================================================ */
-.param-bar {
+/* Agent settings, in the chat header next to New chat. */
+.agent-options {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-panel);
-  animation: fade-up 0.25s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  gap: 6px 12px;
 }
-.param-bar-label {
+.agent-option {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-faint);
-  padding-bottom: 8px;
+  white-space: nowrap;
 }
-.param {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 140px;
-}
-.param-wide {
-  flex: 1 1 320px;
-}
-.param-label {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.param-required {
-  color: var(--danger);
-}
-.param .input,
-.param .select {
-  padding: 6px 10px;
+.agent-option .input,
+.agent-option .select {
+  width: auto;
+  padding: 5px 10px;
   font-size: 13px;
 }
-.param input[type='number'] {
-  width: 110px;
+.agent-option input[type='number'] {
+  width: 92px;
 }
-.doc-picker {
+
+/* Files staged for the next message, and the same chip shown on a sent message. */
+.attach-chips,
+.msg-attachments {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 6px;
 }
-.doc-picker .select {
-  flex: 1;
-  min-width: 180px;
+.msg-attachments {
+  margin-bottom: 6px;
 }
-.doc-preview {
-  margin: 0;
+.msg.user .msg-attachments {
+  justify-content: flex-end;
+}
+.attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-panel);
+  font-size: 12.5px;
+  animation: fade-up 0.2s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.attach-chip svg {
+  flex-shrink: 0;
+  color: var(--accent-strong);
+}
+.attach-chip-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 520px;
+}
+.attach-chip button {
+  display: inline-flex;
+  color: var(--text-faint);
+  transition: color 0.15s, transform 0.15s;
+}
+.attach-chip button:hover {
+  color: var(--danger);
+  transform: scale(1.15);
+}
+.attach-chip.pending {
+  color: var(--text-muted);
+  border-style: dashed;
+}
+.attach-chip.static {
+  background: var(--bg-elev);
+}
+
+.attach-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  transition: color 0.15s, background 0.15s, transform 0.15s;
+}
+.attach-btn:hover:not(:disabled) {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  transform: rotate(-12deg);
+}
+
+/* Drop anywhere on the chat to attach. */
+.chat.dropping > *:not(.dropzone) {
+  pointer-events: none;
+}
+.dropzone {
+  position: absolute;
+  inset: 10px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px dashed var(--accent);
+  border-radius: 16px;
+  background: var(--accent-soft);
+  backdrop-filter: blur(2px);
+  color: var(--accent-strong);
+  animation: fade-up 0.15s ease both;
 }
 .spinner-dark {
   border-color: var(--border-strong);
@@ -1957,10 +2001,8 @@
 }
 
 @media (max-width: 900px) {
-  .param {
-    flex: 1 1 100%;
-  }
-  .param input[type='number'] {
+  .agent-options {
+    order: 3;
     width: 100%;
   }
 }

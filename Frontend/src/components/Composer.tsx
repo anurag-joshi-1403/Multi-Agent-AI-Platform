@@ -1,30 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
-import type { KeyboardEvent } from 'react'
-import type { DocumentsApi } from '../hooks/useDocuments'
-import { buildAttributes } from '../lib/attributes'
-import type { ParameterValues } from '../lib/attributes'
-import type { AgentParameter } from '../types'
-import { DocumentPicker } from './DocumentPicker'
-import { IconSend, IconSliders } from './Icons'
+import type { ClipboardEvent, KeyboardEvent } from 'react'
+import type { AttachmentsApi } from '../hooks/useAttachments'
+import type { Attachment } from '../types'
+import { IconFile, IconPaperclip, IconSend, IconX } from './Icons'
 
 interface Props {
   disabled?: boolean
   busy?: boolean
   placeholder?: string
-  /** Controls the agent asks for; rendered above the message box. */
-  parameters: AgentParameter[]
-  values: ParameterValues
-  onValuesChange: (values: ParameterValues) => void
-  documents: DocumentsApi
-  onSend: (message: string, attributes: Record<string, unknown>) => void
+  attachments: AttachmentsApi
+  onSend: (message: string, extraAttributes: Record<string, unknown>, attachments: Attachment[]) => void
 }
 
-export function Composer({ disabled, busy, placeholder, parameters, values, onValuesChange, documents, onSend }: Props) {
+/** Everything the upload endpoint can turn into text; also what the file dialog offers. */
+export const ACCEPT =
+  '.pdf,.txt,.md,.markdown,.csv,.json,.xml,.html,.yaml,.yml,.log,.java,.ts,.tsx,.js,.jsx,.py,.kt,.go,.rs,.c,.cpp,.h,.cs,.sql'
+
+export function Composer({ disabled, busy, placeholder, attachments, onSend }: Props) {
   const [text, setText] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [advancedJson, setAdvancedJson] = useState('')
   const [error, setError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
 
   // Grow the textarea with its content, up to the CSS max-height.
   useEffect(() => {
@@ -34,41 +32,31 @@ export function Composer({ disabled, busy, placeholder, parameters, values, onVa
     el.style.height = `${el.scrollHeight}px`
   }, [text])
 
-  function setValue(name: string, value: string) {
-    onValuesChange({ ...values, [name]: value })
-    if (error) setError(null)
-  }
-
   function collectAttributes(): Record<string, unknown> | null {
-    const missing = parameters.find((p) => p.required && !(values[p.name] ?? '').trim())
-    if (missing) {
-      setError(`${missing.label} is required for this agent.`)
-      return null
+    if (!showAdvanced || !advancedJson.trim()) {
+      setError(null)
+      return {}
     }
-    let attributes = buildAttributes(parameters, values)
-    if (showAdvanced && advancedJson.trim()) {
-      try {
-        const parsed: unknown = JSON.parse(advancedJson)
-        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          setError('Advanced attributes must be a JSON object, e.g. {"documentId": "doc_1"}')
-          return null
-        }
-        attributes = { ...attributes, ...(parsed as Record<string, unknown>) }
-      } catch (e) {
-        setError(e instanceof Error ? `Advanced attributes: ${e.message}` : 'Invalid JSON')
+    try {
+      const parsed: unknown = JSON.parse(advancedJson)
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        setError('Advanced attributes must be a JSON object, e.g. {"tone": "formal"}')
         return null
       }
+      setError(null)
+      return parsed as Record<string, unknown>
+    } catch (e) {
+      setError(e instanceof Error ? `Advanced attributes: ${e.message}` : 'Invalid JSON')
+      return null
     }
-    setError(null)
-    return attributes
   }
 
   function submit() {
     const message = text.trim()
     if (!message || disabled || busy) return
-    const attributes = collectAttributes()
-    if (attributes === null) return
-    onSend(message, attributes)
+    const extra = collectAttributes()
+    if (extra === null) return
+    onSend(message, extra, attachments.pending)
     setText('')
     textareaRef.current?.focus()
   }
@@ -80,59 +68,48 @@ export function Composer({ disabled, busy, placeholder, parameters, values, onVa
     }
   }
 
+  function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+    const files = [...e.clipboardData.files]
+    if (files.length === 0) return
+    e.preventDefault()
+    void attachments.add(files)
+  }
+
+  function onPick(list: FileList | null) {
+    if (list && list.length) void attachments.add(list)
+    if (fileInput.current) fileInput.current.value = ''
+  }
+
   const ready = !!text.trim() && !disabled && !busy
   const advancedActive = showAdvanced && advancedJson.trim() !== ''
 
   return (
     <div className="composer">
       <div className="composer-inner">
-        {parameters.length > 0 && (
-          <div className="param-bar" role="group" aria-label="Agent options">
-            <span className="param-bar-label">
-              <IconSliders width={14} height={14} /> Options
-            </span>
-            {parameters.map((p) => {
-              const id = `param-${p.name}`
-              const value = values[p.name] ?? ''
-              return (
-                <label key={p.name} className={`param ${p.type === 'DOCUMENT' ? 'param-wide' : ''}`} htmlFor={id} title={p.description}>
-                  <span className="param-label">
-                    {p.label}
-                    {p.required && <span className="param-required"> *</span>}
-                  </span>
-                  {p.type === 'SELECT' ? (
-                    <select id={id} className="select" value={value || String(p.defaultValue ?? '')} onChange={(e) => setValue(p.name, e.target.value)}>
-                      {p.options.map((o) => (
-                        <option key={o} value={o}>
-                          {o === '' ? 'Auto-detect' : o}
-                        </option>
-                      ))}
-                    </select>
-                  ) : p.type === 'NUMBER' ? (
-                    <input
-                      id={id}
-                      className="input"
-                      type="number"
-                      inputMode="numeric"
-                      value={value}
-                      placeholder={p.defaultValue == null ? '' : String(p.defaultValue)}
-                      onChange={(e) => setValue(p.name, e.target.value)}
-                    />
-                  ) : p.type === 'DOCUMENT' ? (
-                    <DocumentPicker id={id} value={value} onChange={(v) => setValue(p.name, v)} documents={documents} />
-                  ) : (
-                    <input
-                      id={id}
-                      className="input"
-                      type="text"
-                      value={value}
-                      placeholder={p.description}
-                      onChange={(e) => setValue(p.name, e.target.value)}
-                    />
-                  )}
-                </label>
-              )
-            })}
+        {(attachments.pending.length > 0 || attachments.uploading > 0) && (
+          <div className="attach-chips" aria-label="Attached files">
+            {attachments.pending.map((a) => (
+              <span key={a.id} className="attach-chip">
+                <IconFile width={13} height={13} />
+                <span className="attach-chip-name" title={a.name}>
+                  {a.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => attachments.remove(a.id)}
+                  aria-label={`Remove ${a.name}`}
+                  title="Remove"
+                >
+                  <IconX width={12} height={12} />
+                </button>
+              </span>
+            ))}
+            {attachments.uploading > 0 && (
+              <span className="attach-chip pending">
+                <span className="spinner spinner-dark" aria-hidden />
+                Uploading {attachments.uploading}…
+              </span>
+            )}
           </div>
         )}
 
@@ -144,9 +121,20 @@ export function Composer({ disabled, busy, placeholder, parameters, values, onVa
             placeholder={placeholder ?? 'Send a message…'}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
+            onPaste={onPaste}
             disabled={disabled}
             aria-label="Message"
           />
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon attach-btn"
+            onClick={() => fileInput.current?.click()}
+            disabled={disabled}
+            aria-label="Attach files"
+            title="Attach files — or drop them on the chat, or paste them here"
+          >
+            <IconPaperclip />
+          </button>
           <button
             type="button"
             className={`btn btn-primary btn-icon send-btn ${ready ? 'ready' : ''} ${busy ? 'busy' : ''}`}
@@ -156,6 +144,15 @@ export function Composer({ disabled, busy, placeholder, parameters, values, onVa
           >
             {busy ? <span className="spinner" aria-hidden /> : <IconSend />}
           </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept={ACCEPT}
+            multiple
+            hidden
+            onChange={(e) => onPick(e.target.files)}
+            aria-hidden
+          />
         </div>
 
         <div className={`composer-attrs ${showAdvanced ? 'open' : ''}`} aria-hidden={!showAdvanced}>
@@ -176,9 +173,9 @@ export function Composer({ disabled, busy, placeholder, parameters, values, onVa
           </div>
         </div>
 
-        {error && (
-          <p className="small composer-error" role="alert">
-            {error}
+        {(error || attachments.error) && (
+          <p className="small composer-error" role="alert" onClick={() => attachments.dismissError()}>
+            {error ?? attachments.error}
           </p>
         )}
 

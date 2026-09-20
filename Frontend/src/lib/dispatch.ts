@@ -1,10 +1,13 @@
 import { runAgent } from '../api/client'
 import type { ConversationsApi } from '../hooks/useConversations'
+import type { Attachment } from '../types'
 import { uid } from './util'
 
 export interface DispatchOptions {
   /** When set, edits this existing user message in place instead of appending a new one (edit-and-resend). */
   replaceMessageId?: string
+  /** Files attached to this turn. Their ids must already be in `attributes.attachments`. */
+  attachments?: Attachment[]
 }
 
 /**
@@ -29,6 +32,7 @@ export async function dispatchMessage(
       content: text,
       createdAt: Date.now(),
       attributes,
+      attachments: opts?.attachments?.length ? opts.attachments : undefined,
     })
   }
 
