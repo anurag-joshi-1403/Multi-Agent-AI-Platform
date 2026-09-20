@@ -16,13 +16,16 @@ import org.springframework.ai.chat.model.Generation;
 
 import com.project.multi_agent_ai_platform.agent.core.Agent;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
+import com.project.multi_agent_ai_platform.document.AttachmentResolver;
+import com.project.multi_agent_ai_platform.document.StoredDocument;
 
 /**
  * Base class for agents that answer by calling the chat model.
  * <p>
  * Each subclass owns one {@link ChatClient} pre-loaded with its system prompt. Conversation
  * memory is attached per call and only when the request carries a {@code conversationId}, so
- * single-shot calls never leak into a shared default conversation.
+ * single-shot calls never leak into a shared default conversation. Files the caller attached are
+ * appended to the system prompt of every call, so any agent can answer about them.
  */
 public abstract class LlmAgent implements Agent {
 
@@ -32,10 +35,22 @@ public abstract class LlmAgent implements Agent {
 
 	private final MessageChatMemoryAdvisor memoryAdvisor;
 
-	protected LlmAgent(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory, String systemPrompt) {
+	private final AttachmentResolver attachments;
+
+	private final String systemPrompt;
+
+	protected LlmAgent(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory, AttachmentResolver attachments,
+			String systemPrompt) {
 		this.chatClient = chatClientBuilder.clone().defaultSystem(systemPrompt).build();
 		this.chatMemory = chatMemory;
 		this.memoryAdvisor = MessageChatMemoryAdvisor.builder(chatMemory).build();
+		this.attachments = attachments;
+		this.systemPrompt = systemPrompt;
+	}
+
+	/** Files the caller attached to this conversation, newest request order, evicted ids skipped. */
+	protected final List<StoredDocument> attached(AgentRequest request) {
+		return attachments.resolve(request);
 	}
 
 	/** What the model said plus provider facts (model, token usage, finish reason). */
@@ -54,7 +69,11 @@ public abstract class LlmAgent implements Agent {
 	 */
 	protected final Completion complete(AgentRequest request, String userMessage, String systemOverride) {
 		ChatClient.ChatClientRequestSpec spec = chatClient.prompt();
-		if (systemOverride != null) {
+		String attachmentBlock = attachments.block(attachments.resolve(request));
+		if (attachmentBlock != null) {
+			spec = spec.system((systemOverride != null ? systemOverride : systemPrompt) + attachmentBlock);
+		}
+		else if (systemOverride != null) {
 			spec = spec.system(systemOverride);
 		}
 		String conversationId = conversationId(request);
