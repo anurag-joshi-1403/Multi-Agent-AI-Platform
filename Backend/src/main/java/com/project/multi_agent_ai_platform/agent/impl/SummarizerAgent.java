@@ -12,6 +12,7 @@ import com.project.multi_agent_ai_platform.agent.core.AgentParameter;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
+import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 
 /**
  * Condenses text. Attributes: {@code style} = {@code bullets} (default) | {@code tldr} |
@@ -27,8 +28,8 @@ public class SummarizerAgent extends LlmAgent {
 
 	private static final int DEFAULT_MAX_WORDS = 150;
 
-	public SummarizerAgent(ChatClient.Builder builder, ChatMemory chatMemory) {
-		super(builder, chatMemory, SYSTEM_PROMPT);
+	public SummarizerAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments) {
+		super(builder, chatMemory, attachments, SYSTEM_PROMPT);
 	}
 
 	@Override
