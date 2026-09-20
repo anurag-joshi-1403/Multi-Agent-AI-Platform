@@ -1,14 +1,7 @@
 import type { AgentInfo, AgentRequest, AgentResponse, DocumentSummary, PlatformStatus } from '../types'
 import { loadString, STORAGE_KEYS } from '../lib/storage'
 import { titleCase } from '../lib/util'
-import {
-  MOCK_AGENTS,
-  MOCK_PLATFORM,
-  mockDeleteDocument,
-  mockListDocuments,
-  mockRun,
-  mockUploadDocument,
-} from './mock'
+import { MOCK_AGENTS, MOCK_PLATFORM, mockDeleteDocument, mockRun, mockUploadDocument } from './mock'
 
 /**
  * Backend contract (see Backend/README.md):
@@ -151,11 +144,6 @@ export async function getPlatform(): Promise<PlatformStatus> {
 }
 
 // --- documents -------------------------------------------------------------
-export async function listDocuments(): Promise<DocumentSummary[]> {
-  if (simulated()) return mockListDocuments()
-  return http<DocumentSummary[]>('/documents')
-}
-
 export async function uploadDocument(file: File): Promise<DocumentSummary> {
   if (simulated()) return mockUploadDocument(file)
   const form = new FormData()
