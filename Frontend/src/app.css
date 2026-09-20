@@ -925,6 +925,15 @@
 }
 .conv-list-head h2 {
   font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conv-list-title {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
 .conv-items {
   flex: 1;
@@ -1040,6 +1049,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.new-chat-btn {
+  color: var(--accent-strong);
+  border-color: var(--accent-ring);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.new-chat-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 .inspector-toggle {
   transition: background 0.15s, color 0.15s;
@@ -1790,6 +1808,7 @@
     grid-template-columns: 1fr;
   }
   .chat-head-desc,
+  .new-chat-btn span,
   .inspector-toggle span {
     display: none;
   }
