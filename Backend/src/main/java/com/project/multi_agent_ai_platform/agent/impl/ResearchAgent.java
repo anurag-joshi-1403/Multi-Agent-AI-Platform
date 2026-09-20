@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
+import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 
 /**
  * Structured research from model knowledge. Live web search is not wired yet; the agent is
@@ -29,8 +30,8 @@ public class ResearchAgent extends LlmAgent {
 			Never fabricate sources, URLs, statistics or quotations. If you do not know, say so.
 			""";
 
-	public ResearchAgent(ChatClient.Builder builder, ChatMemory chatMemory) {
-		super(builder, chatMemory, SYSTEM_PROMPT);
+	public ResearchAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments) {
+		super(builder, chatMemory, attachments, SYSTEM_PROMPT);
 	}
 
 	@Override
