@@ -49,19 +49,9 @@ export const MOCK_AGENTS: AgentInfo[] = [
   {
     id: 'document',
     name: 'Document Agent',
-    description: 'Answers questions grounded in an uploaded PDF or text document (pass documentId in attributes).',
+    description: 'Answers questions grounded in the PDF or text files you attach to the message.',
     capabilities: ['PDF Q&A', 'Extraction', 'Grounded answers'],
-    parameters: [
-      {
-        name: 'documentId',
-        label: 'Document',
-        description: 'An uploaded PDF or text file to answer from.',
-        type: 'DOCUMENT',
-        required: true,
-        options: [],
-        defaultValue: null,
-      },
-    ],
+    parameters: [],
   },
   {
     id: 'general',
@@ -126,11 +116,6 @@ function mockId() {
   return 'doc_' + Math.random().toString(36).slice(2, 14)
 }
 
-export async function mockListDocuments(): Promise<DocumentSummary[]> {
-  await delay(120)
-  return [...mockDocuments]
-}
-
 export async function mockUploadDocument(file: File): Promise<DocumentSummary> {
   await delay(400)
   const isPdf = file.type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf')
@@ -157,9 +142,17 @@ export async function mockDeleteDocument(id: string): Promise<void> {
 }
 
 // --- simulated replies ------------------------------------------------------
+/** Documents named by the request's `attachments` attribute, skipping ids the store no longer has. */
+function attachedDocuments(request: AgentRequest): DocumentSummary[] {
+  const raw = request.attributes.attachments
+  const ids = Array.isArray(raw) ? raw.map(String) : typeof raw === 'string' ? [raw] : []
+  return ids.map((id) => mockDocuments.find((d) => d.id === id)).filter((d): d is DocumentSummary => !!d)
+}
+
 function reply(agentId: string, request: AgentRequest): { content: string; metadata: Record<string, unknown> } {
   const message = request.message
   const snippet = message.length > 80 ? message.slice(0, 77) + '…' : message
+  const attached = attachedDocuments(request)
   switch (agentId) {
     case 'coding': {
       const language = String(request.attributes.language ?? 'typescript').toLowerCase()
@@ -219,28 +212,41 @@ function reply(agentId: string, request: AgentRequest): { content: string; metad
       }
     }
     case 'document': {
-      const documentId = String(request.attributes.documentId ?? '')
-      const doc = mockDocuments.find((d) => d.id === documentId)
+      if (attached.length === 0) {
+        return {
+          content:
+            'No files attached. Use the paperclip in the message box (or drop a file on the chat), then ask again.',
+          metadata: { model: 'simulated' },
+        }
+      }
       return {
-        content: doc
-          ? [
-              `Based on **${doc.name}**${doc.pages ? ' (page 1)' : ''}:`,
-              '',
-              `> "${doc.preview.slice(0, 120)}${doc.preview.length > 120 ? '…' : ''}"`,
-              '',
-              `That passage is the closest match for "${snippet}". (Simulated — no model was called.)`,
-            ].join('\n')
-          : 'No document selected. Pick or upload one in the options above the message box, then ask again.',
-        metadata: doc
-          ? { model: 'simulated', documentId: doc.id, documentName: doc.name, pages: doc.pages ?? undefined, truncated: false }
+        content: [
+          `Based on ${attached.map((d) => `**${d.name}**`).join(' and ')}:`,
+          '',
+          ...attached.map((d) => `> "${d.preview.slice(0, 120)}${d.preview.length > 120 ? '…' : ''}"`),
+          '',
+          `That is the closest match for "${snippet}". (Simulated — no model was called.)`,
+        ].join('\n'),
+        metadata: {
+          model: 'simulated',
+          documentIds: attached.map((d) => d.id),
+          documentNames: attached.map((d) => d.name),
+        },
+      }
+    }
+    default: {
+      const note = attached.length
+        ? `\n\nI can see ${attached.length} attached file${attached.length === 1 ? '' : 's'}: ${attached
+            .map((d) => d.name)
+            .join(', ')}.`
+        : ''
+      return {
+        content: `Sure — here's a quick take on "${snippet}".${note}\n\nThis is a simulated answer: the backend is offline, so no model was called. Start the Spring Boot app on port 8080 and refresh to talk to real agents.`,
+        metadata: attached.length
+          ? { model: 'simulated', documentNames: attached.map((d) => d.name) }
           : { model: 'simulated' },
       }
     }
-    default:
-      return {
-        content: `Sure — here's a quick take on "${snippet}".\n\nThis is a simulated answer: the backend is offline, so no model was called. Start the Spring Boot app on port 8080 and refresh to talk to real agents.`,
-        metadata: { model: 'simulated' },
-      }
   }
 }
 

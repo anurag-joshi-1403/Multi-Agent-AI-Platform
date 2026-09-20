@@ -206,11 +206,19 @@ export function IconArrowDown(p: IconProps) {
   )
 }
 
-export function IconUpload(p: IconProps) {
+export function IconPaperclip(p: IconProps) {
   return (
     <svg {...base} {...p}>
-      <path d="M12 16V4M6 10l6-6 6 6" />
-      <path d="M4 20h16" />
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  )
+}
+
+export function IconFile(p: IconProps) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
     </svg>
   )
 }
@@ -220,17 +228,6 @@ export function IconKey(p: IconProps) {
     <svg {...base} {...p}>
       <circle cx="8" cy="15" r="4" />
       <path d="M10.8 12.2 20 3M15 8l3 3M17 6l3 3" />
-    </svg>
-  )
-}
-
-export function IconSliders(p: IconProps) {
-  return (
-    <svg {...base} {...p}>
-      <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" />
-      <circle cx="16" cy="6" r="2" />
-      <circle cx="10" cy="12" r="2" />
-      <circle cx="18" cy="18" r="2" />
     </svg>
   )
 }
