@@ -5,32 +5,40 @@ import { formatRelative } from '../lib/util'
 import type { AgentInfo, Conversation } from '../types'
 
 interface Props {
+  /** Every stored conversation; the rail shows only the current agent's, so threads never mix. */
   conversations: Conversation[]
-  agents: AgentInfo[]
+  agent?: AgentInfo
   activeId?: string
   onSelect: (id: string) => void
   onNew: () => void
   onDelete: (id: string) => void
 }
 
-export function ConversationList({ conversations, agents, activeId, onSelect, onNew, onDelete }: Props) {
+export function ConversationList({ conversations, agent, activeId, onSelect, onNew, onDelete }: Props) {
+  const mine = agent ? conversations.filter((c) => c.agentId === agent.id) : []
+  const newLabel = agent ? `New chat with ${agent.name}` : 'New chat'
+
   return (
-    <aside className="conv-list" aria-label="Conversations">
+    <aside className="conv-list" aria-label={agent ? `${agent.name} conversations` : 'Conversations'}>
       <div className="conv-list-head">
-        <h2>Conversations</h2>
-        <button type="button" className="btn btn-icon btn-ghost" onClick={onNew} aria-label="New conversation">
+        <div className="conv-list-title grow">
+          <h2 title={agent?.name}>{agent?.name ?? 'Conversations'}</h2>
+          <span className="small faint">
+            {mine.length === 0 ? 'No chats yet' : `${mine.length} chat${mine.length === 1 ? '' : 's'}`}
+          </span>
+        </div>
+        <button type="button" className="btn btn-icon btn-ghost" onClick={onNew} aria-label={newLabel} title={newLabel}>
           <IconPlus />
         </button>
       </div>
       <div className="conv-items">
-        {conversations.length === 0 && (
+        {mine.length === 0 && (
           <div className="empty" style={{ padding: '32px 8px' }}>
             <IconChat />
-            <p className="small">No conversations yet.</p>
+            <p className="small">No chats with {agent?.name ?? 'this agent'} yet.</p>
           </div>
         )}
-        {conversations.map((c, i) => {
-          const agent = agents.find((a) => a.id === c.agentId)
+        {mine.map((c, i) => {
           const active = c.id === activeId
           return (
             <div
@@ -52,7 +60,7 @@ export function ConversationList({ conversations, agents, activeId, onSelect, on
               <div className="grow">
                 <div className="conv-title">{c.title}</div>
                 <div className="conv-meta">
-                  {agent?.name ?? c.agentId} · {c.messages.length} msg · {formatRelative(c.updatedAt)}
+                  {c.messages.length} msg · {formatRelative(c.updatedAt)}
                 </div>
               </div>
               <button
