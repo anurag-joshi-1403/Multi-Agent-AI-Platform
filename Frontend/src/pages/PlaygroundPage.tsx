@@ -1,20 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, DragEvent } from 'react'
 import { AgentAvatar } from '../components/AgentAvatar'
+import { AgentOptions } from '../components/AgentOptions'
 import { Composer } from '../components/Composer'
 import { ConversationList } from '../components/ConversationList'
-import { IconArrowDown, IconPanelRight, IconPlus, IconSpark } from '../components/Icons'
+import { IconArrowDown, IconPanelRight, IconPaperclip, IconPlus, IconSpark } from '../components/Icons'
 import { Inspector } from '../components/Inspector'
 import { MessageBubble } from '../components/MessageBubble'
 import { forgetConversation } from '../api/client'
+import { useAttachments } from '../hooks/useAttachments'
 import type { ConversationsApi } from '../hooks/useConversations'
-import { useDocuments } from '../hooks/useDocuments'
 import { agentThemeStyle } from '../lib/agentColor'
 import { buildAttributes } from '../lib/attributes'
 import type { ParameterValues } from '../lib/attributes'
 import { dispatchMessage } from '../lib/dispatch'
+import type { DispatchOptions } from '../lib/dispatch'
 import { loadString, saveString, STORAGE_KEYS } from '../lib/storage'
-import type { AgentInfo, ChatMessage } from '../types'
+import type { AgentInfo, Attachment, ChatMessage } from '../types'
 
 /**
  * The chat workspace. Three columns:
@@ -46,6 +48,16 @@ function pickInspected(
   return { selectedMessage: sel }
 }
 
+/**
+ * The `attachments` attribute for a turn: every file attached earlier in the thread plus the ones
+ * just added, so a follow-up question still sees a file attached three messages ago. Omitted
+ * entirely when there is nothing attached.
+ */
+function withAttachments(history: ChatMessage[], added: Attachment[]): { attachments?: string[] } {
+  const ids = [...new Set([...history.flatMap((m) => m.attachments ?? []), ...added].map((a) => a.id))]
+  return ids.length ? { attachments: ids } : {}
+}
+
 const HOW_TO = [
   { title: 'Choose an agent', text: 'from the dropdown above — each one is a specialist.' },
   { title: 'Send a message.', text: 'Try one of the prompts below, or write your own.' },
@@ -72,8 +84,10 @@ export function PlaygroundPage({
   // Selection is scoped to a conversation so switching threads naturally clears it.
   const [selected, setSelected] = useState<{ conversationId: string; messageId: string } | undefined>()
   const [showInspector, setShowInspector] = useState(() => loadString(STORAGE_KEYS.inspector) !== 'hidden')
-  // Option values typed into the composer, remembered per agent while the page is open.
+  // Option values typed into the header controls, remembered per agent while the page is open.
   const [paramValues, setParamValues] = useState<Record<string, ParameterValues>>({})
+  const attachments = useAttachments()
+  const [dragging, setDragging] = useState(false)
   const threadRef = useRef<HTMLDivElement>(null)
 
   function toggleInspector() {
@@ -88,8 +102,6 @@ export function PlaygroundPage({
   const agent = agents.find((a) => a.id === agentId)
   const isPending = !!active && pending.has(active.id)
   const parameters = agent?.parameters ?? []
-  const needsDocuments = parameters.some((p) => p.type === 'DOCUMENT')
-  const documents = useDocuments(needsDocuments)
   const values = paramValues[agentId] ?? {}
 
   // Auto-scroll to the newest message (instant on conversation switch, smooth for new messages).
@@ -130,7 +142,7 @@ export function PlaygroundPage({
     return created
   }
 
-  async function runDispatch(convId: string, targetAgentId: string, text: string, attributes: Record<string, unknown>, opts?: { replaceMessageId?: string }) {
+  async function runDispatch(convId: string, targetAgentId: string, text: string, attributes: Record<string, unknown>, opts?: DispatchOptions) {
     setPending((p) => new Set(p).add(convId))
     try {
       await dispatchMessage(conversations, convId, targetAgentId, text, attributes, opts)
@@ -143,18 +155,46 @@ export function PlaygroundPage({
     }
   }
 
-  async function send(text: string, attributes: Record<string, unknown>) {
+  async function send(text: string, extra: Record<string, unknown>, added: Attachment[]) {
     if (!agentId) return
     const conv = active ?? startConversation()
-    await runDispatch(conv.id, conv.agentId, text, attributes)
+    const attributes = {
+      ...buildAttributes(parameters, values),
+      ...extra,
+      ...withAttachments(active?.messages ?? [], added),
+    }
+    attachments.clear()
+    await runDispatch(conv.id, conv.agentId, text, attributes, { attachments: added })
   }
 
   /** Edit a previously-sent prompt: drop the stale reply after it, then resend with the new text. */
   async function editMessage(messageId: string, text: string) {
     if (!active) return
-    const original = active.messages.find((m) => m.id === messageId)
+    const idx = active.messages.findIndex((m) => m.id === messageId)
+    if (idx < 0) return
+    const original = active.messages[idx]
+    // Only files attached up to and including this turn — the truncated ones are gone.
+    const attributes = { ...(original.attributes ?? {}), ...withAttachments(active.messages.slice(0, idx + 1), []) }
     conversations.truncateAfter(active.id, messageId)
-    await runDispatch(active.id, active.agentId, text, original?.attributes ?? {}, { replaceMessageId: messageId })
+    await runDispatch(active.id, active.agentId, text, attributes, { replaceMessageId: messageId })
+  }
+
+  function onDragOver(e: DragEvent<HTMLElement>) {
+    if (!e.dataTransfer.types.includes('Files')) return
+    e.preventDefault()
+    setDragging(true)
+  }
+
+  function onDragLeave(e: DragEvent<HTMLElement>) {
+    if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return
+    setDragging(false)
+  }
+
+  function onDrop(e: DragEvent<HTMLElement>) {
+    if (!e.dataTransfer.types.includes('Files')) return
+    e.preventDefault()
+    setDragging(false)
+    void attachments.add(e.dataTransfer.files)
   }
 
   /** Each agent keeps its own threads, so picking a different one always opens a fresh chat. */
@@ -198,10 +238,20 @@ export function PlaygroundPage({
       />
 
       <section
-        className="chat"
+        className={`chat ${dragging ? 'dropping' : ''}`}
         aria-label="Chat"
         style={agent ? (agentThemeStyle(agent.id) as CSSProperties) : undefined}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
       >
+        {dragging && (
+          <div className="dropzone" aria-hidden>
+            <IconPaperclip width={26} height={26} />
+            <strong>Drop files to attach them</strong>
+            <span className="small muted">PDFs and text files · they stay in context for this chat</span>
+          </div>
+        )}
         <header className="chat-head">
           {agent && (
             <div key={agent.id} className="pop-in">
@@ -227,6 +277,11 @@ export function PlaygroundPage({
             </label>
             <span className="small muted chat-head-desc">{agent?.description}</span>
           </div>
+          <AgentOptions
+            parameters={parameters}
+            values={values}
+            onChange={(next) => setParamValues((prev) => ({ ...prev, [agentId]: next }))}
+          />
           <button
             type="button"
             className="btn btn-sm new-chat-btn"
@@ -280,7 +335,7 @@ export function PlaygroundPage({
                         type="button"
                         className="btn btn-sm suggestion fade-up"
                         style={{ '--i': 7 + i } as CSSProperties}
-                        onClick={() => send(s, buildAttributes(parameters, values))}
+                        onClick={() => void send(s, {}, attachments.pending)}
                       >
                         {s}
                       </button>
@@ -331,10 +386,7 @@ export function PlaygroundPage({
           disabled={!agentId}
           busy={isPending}
           placeholder={agent ? `Message the ${agent.name}…` : 'Waiting for agents…'}
-          parameters={parameters}
-          values={values}
-          onValuesChange={(next) => setParamValues((prev) => ({ ...prev, [agentId]: next }))}
-          documents={documents}
+          attachments={attachments}
           onSend={send}
         />
       </section>
