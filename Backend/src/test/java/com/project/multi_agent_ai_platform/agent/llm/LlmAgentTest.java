@@ -15,13 +15,23 @@ import org.springframework.ai.chat.prompt.Prompt;
 
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
+import com.project.multi_agent_ai_platform.config.PlatformProperties;
+import com.project.multi_agent_ai_platform.document.AttachmentResolver;
+import com.project.multi_agent_ai_platform.document.DocumentStore;
 
 class LlmAgentTest {
 
 	private final StubChatModel model = new StubChatModel();
 
+	private static AttachmentResolver resolver() {
+		PlatformProperties properties = new PlatformProperties(new PlatformProperties.Cors(List.of()),
+				new PlatformProperties.Memory(20), new PlatformProperties.Documents(60_000, 50));
+		return new AttachmentResolver(new DocumentStore(properties), properties);
+	}
+
 	/** Smallest possible concrete agent for exercising the base class. */
-	private final LlmAgent agent = new LlmAgent(model.clientBuilder(), StubChatModel.memory(), "You are a test.") {
+	private final LlmAgent agent = new LlmAgent(model.clientBuilder(), StubChatModel.memory(), resolver(),
+			"You are a test.") {
 		@Override
 		public String id() {
 			return "test";
@@ -98,7 +108,7 @@ class LlmAgentTest {
 				return super.call(prompt);
 			}
 		};
-		LlmAgent flaky = new LlmAgent(failing.clientBuilder(), memory, "sys") {
+		LlmAgent flaky = new LlmAgent(failing.clientBuilder(), memory, resolver(), "sys") {
 			@Override
 			public String id() {
 				return "flaky";
