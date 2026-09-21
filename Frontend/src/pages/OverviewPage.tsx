@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import type { CSSProperties } from 'react'
 import { AgentAvatar } from '../components/AgentAvatar'
 import { EmptyState } from '../components/EmptyState'
 import {
@@ -39,6 +40,14 @@ const PIPELINE = [
   { title: 'Registry finds the agent', desc: 'Agents are Spring beans discovered at startup — no config to edit.' },
   { title: 'Agent answers', desc: 'The specialist calls the LLM and returns content plus metadata.' },
 ]
+
+/** Each stat gets its own semantic colour so the grid reads at a glance instead of as four grey boxes. */
+const STAT_COLORS = {
+  accent: 'var(--accent)',
+  info: 'var(--info)',
+  ok: 'var(--ok)',
+  warn: 'var(--warn)',
+} as const
 
 export function OverviewPage({ agents, agentsLoading, conversations, backend, platform }: Props) {
   const stats = useMemo(() => {
@@ -110,12 +119,15 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
       />
 
       <div className="overview-top">
-        <section className="card" aria-labelledby="start-title">
+        <section className="card fade-up" style={{ '--i': 1 } as CSSProperties} aria-labelledby="start-title">
           <div className="card-title" id="start-title">
             <span>Getting started</span>
             <span className="badge">
               {doneCount}/{steps.length} done
             </span>
+          </div>
+          <div className="progress-track" aria-hidden>
+            <div className="progress-fill" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
           </div>
           <ol className="steps">
             {steps.map((s, i) => (
@@ -138,30 +150,45 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
         </section>
 
         <section className="stat-grid stat-grid-compact" aria-label="Key numbers">
-          <div className="stat">
+          <div
+            className="stat fade-up"
+            style={{ '--i': 2, '--stat-color': STAT_COLORS.accent } as CSSProperties}
+          >
             <div className="stat-label">
-              <IconBot /> Agents
+              <span className="stat-icon">
+                <IconBot />
+              </span>
+              Agents
             </div>
             <div className="stat-value">{agentsLoading ? '—' : agents.length}</div>
             <div className="stat-sub">registered in the backend</div>
           </div>
-          <div className="stat">
+          <div className="stat fade-up" style={{ '--i': 3, '--stat-color': STAT_COLORS.info } as CSSProperties}>
             <div className="stat-label">
-              <IconChat /> Conversations
+              <span className="stat-icon">
+                <IconChat />
+              </span>
+              Conversations
             </div>
             <div className="stat-value">{conversations.length}</div>
             <div className="stat-sub">{stats.totalMsgs} messages, saved in this browser</div>
           </div>
-          <div className="stat">
+          <div className="stat fade-up" style={{ '--i': 4, '--stat-color': STAT_COLORS.ok } as CSSProperties}>
             <div className="stat-label">
-              <IconActivity /> Agent runs
+              <span className="stat-icon">
+                <IconActivity />
+              </span>
+              Agent runs
             </div>
             <div className="stat-value">{stats.agentRuns}</div>
             <div className="stat-sub">{stats.top ? `most used: ${stats.top[0]}` : 'no runs yet'}</div>
           </div>
-          <div className="stat">
+          <div className="stat fade-up" style={{ '--i': 5, '--stat-color': STAT_COLORS.warn } as CSSProperties}>
             <div className="stat-label">
-              <IconClock /> Avg. latency
+              <span className="stat-icon">
+                <IconClock />
+              </span>
+              Avg. latency
             </div>
             <div className="stat-value">{stats.avg ? formatMs(stats.avg) : '—'}</div>
             <div className="stat-sub">round-trip, as seen by the browser</div>
@@ -169,7 +196,11 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
         </section>
       </div>
 
-      <section className="card" style={{ marginBottom: 16 }} aria-labelledby="pipeline-title">
+      <section
+        className="card fade-up"
+        style={{ marginBottom: 16, '--i': 6 } as CSSProperties}
+        aria-labelledby="pipeline-title"
+      >
         <div className="card-title" id="pipeline-title">
           <span className="row">
             <IconLayers width={15} height={15} /> How a request flows through the platform
@@ -190,7 +221,7 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
       </section>
 
       <div className="overview-grid">
-        <section className="card" aria-labelledby="recent-title">
+        <section className="card fade-up" style={{ '--i': 7 } as CSSProperties} aria-labelledby="recent-title">
           <div className="card-title" id="recent-title">
             Recent conversations
             <a className="small" href={href({ page: 'playground' })}>
@@ -203,10 +234,15 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
             </EmptyState>
           ) : (
             <div className="list">
-              {recent.map((c) => {
+              {recent.map((c, i) => {
                 const agent = agents.find((a) => a.id === c.agentId)
                 return (
-                  <a key={c.id} className="list-item" href={href({ page: 'playground', conversationId: c.id })}>
+                  <a
+                    key={c.id}
+                    className="list-item list-in"
+                    style={{ '--i': i } as CSSProperties}
+                    href={href({ page: 'playground', conversationId: c.id })}
+                  >
                     <AgentAvatar id={c.agentId} name={agent?.name} size="sm" />
                     <div className="grow">
                       <div className="title">{c.title}</div>
@@ -223,7 +259,7 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
           )}
         </section>
 
-        <section className="card" aria-labelledby="agents-title">
+        <section className="card fade-up" style={{ '--i': 8 } as CSSProperties} aria-labelledby="agents-title">
           <div className="card-title" id="agents-title">
             Available agents
             <a className="small" href={href({ page: 'agents' })}>
@@ -236,8 +272,8 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
             </EmptyState>
           ) : (
             <div className="list">
-              {agents.map((a) => (
-                <a key={a.id} className="list-item" href={href({ page: 'agents' })}>
+              {agents.map((a, i) => (
+                <a key={a.id} className="list-item list-in" style={{ '--i': i } as CSSProperties} href={href({ page: 'agents' })}>
                   <AgentAvatar id={a.id} name={a.name} size="sm" />
                   <div className="grow">
                     <div className="title">{a.name}</div>
