@@ -69,6 +69,18 @@
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-pdf-document-reader</artifactId>
 		</dependency>
+		<!-- Persistence: JdbcClient + DataSource for the document store. Plain JDBC rather than
+		     JPA - the stored shapes are two flat tables, not an object graph. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-jdbc</artifactId>
+		</dependency>
+		<!-- Swaps Spring AI's in-memory ChatMemoryRepository for a JDBC-backed one. AiConfig already
+		     takes the repository as a bean, so nothing in the agents changes. -->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-model-chat-memory-repository-jdbc</artifactId>
+		</dependency>
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -82,6 +94,15 @@
 			<scope>runtime</scope>
 			<optional>true</optional>
 		</dependency>
+		<!-- The default database: a file under Backend/data, so persistence works on a clean machine
+		     with nothing installed. Spring AI ships an H2 chat-memory dialect alongside its Postgres
+		     one, so both tables work the same either way. -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<!-- Used by the "postgres" profile, and by any SPRING_DATASOURCE_URL pointing at one. -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>

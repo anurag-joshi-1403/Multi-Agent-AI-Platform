@@ -29,10 +29,10 @@ import com.project.multi_agent_ai_platform.config.LlmProvider;
 import com.project.multi_agent_ai_platform.config.LlmProviderInfo;
 import com.project.multi_agent_ai_platform.config.PlatformProperties;
 import com.project.multi_agent_ai_platform.config.SecurityConfig;
-import com.project.multi_agent_ai_platform.document.DocumentStore;
+import com.project.multi_agent_ai_platform.document.InMemoryDocumentStore;
 
 @WebMvcTest(PlatformController.class)
-@Import({ SecurityConfig.class, DocumentStore.class, PlatformControllerTest.ProviderConfig.class })
+@Import({ SecurityConfig.class, InMemoryDocumentStore.class, PlatformControllerTest.ProviderConfig.class })
 @EnableConfigurationProperties(PlatformProperties.class)
 class PlatformControllerTest {
 

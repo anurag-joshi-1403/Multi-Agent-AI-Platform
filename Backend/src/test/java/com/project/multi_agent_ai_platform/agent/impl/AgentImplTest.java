@@ -15,6 +15,7 @@ import com.project.multi_agent_ai_platform.agent.llm.StubChatModel;
 import com.project.multi_agent_ai_platform.config.PlatformProperties;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 import com.project.multi_agent_ai_platform.document.DocumentStore;
+import com.project.multi_agent_ai_platform.document.InMemoryDocumentStore;
 import com.project.multi_agent_ai_platform.document.StoredDocument;
 
 /** Behaviour of each concrete agent on top of the stubbed model. */
@@ -23,7 +24,7 @@ class AgentImplTest {
 	private final StubChatModel model = new StubChatModel();
 
 	private static PlatformProperties properties(int maxContextChars) {
-		return new PlatformProperties(new PlatformProperties.Cors(List.of()), new PlatformProperties.Memory(20),
+		return new PlatformProperties(PlatformProperties.Storage.MEMORY, new PlatformProperties.Cors(List.of()), new PlatformProperties.Memory(20),
 				new PlatformProperties.Documents(maxContextChars, 50), new PlatformProperties.Auth("tester:tester"));
 	}
 
@@ -33,7 +34,7 @@ class AgentImplTest {
 
 	/** A resolver over an empty store, for agents under test that are not given attachments. */
 	private static AttachmentResolver resolver() {
-		return resolver(new DocumentStore(properties(60_000)), 60_000);
+		return resolver(new InMemoryDocumentStore(properties(60_000)), 60_000);
 	}
 
 	private static Map<String, Object> attaching(String... documentIds) {
@@ -114,7 +115,7 @@ class AgentImplTest {
 
 	@Test
 	void anyAgentSeesAttachedFilesWithoutLosingItsOwnSystemPrompt() {
-		DocumentStore store = new DocumentStore(properties(60_000));
+		DocumentStore store = new InMemoryDocumentStore(properties(60_000));
 		StoredDocument doc = store.save("notes.md", "text/markdown", "The build runs on Java 25.", null);
 		CodingAgent agent = new CodingAgent(model.clientBuilder(), StubChatModel.memory(), resolver(store, 60_000));
 
@@ -129,7 +130,7 @@ class AgentImplTest {
 
 	@Test
 	void severalAttachmentsShareTheContextBudget() {
-		DocumentStore store = new DocumentStore(properties(60_000));
+		DocumentStore store = new InMemoryDocumentStore(properties(60_000));
 		StoredDocument a = store.save("a.txt", "text/plain", "alpha", null);
 		StoredDocument b = store.save("b.txt", "text/plain", "beta", null);
 		GeneralAgent agent = new GeneralAgent(model.clientBuilder(), StubChatModel.memory(), resolver(store, 60_000));
@@ -146,7 +147,7 @@ class AgentImplTest {
 	@Test
 	void evictedAttachmentIdsAreSkippedRatherThanFailingTheCall() {
 		GeneralAgent agent = new GeneralAgent(model.clientBuilder(), StubChatModel.memory(),
-				resolver(new DocumentStore(properties(100)), 100));
+				resolver(new InMemoryDocumentStore(properties(100)), 100));
 
 		AgentResponse response = agent.handle(new AgentRequest(null, "hi", attaching("doc_gone")));
 
@@ -158,7 +159,7 @@ class AgentImplTest {
 
 	@Test
 	void documentAgentInjectsAttachmentIntoSystemPromptOnly() {
-		DocumentStore store = new DocumentStore(properties(60_000));
+		DocumentStore store = new InMemoryDocumentStore(properties(60_000));
 		StoredDocument doc = store.save("contract.pdf", "application/pdf", "[page 2]\nThe contract renews automatically.", 3);
 		DocumentAgent agent = new DocumentAgent(model.clientBuilder(), StubChatModel.memory(), resolver(store, 60_000));
 
@@ -175,7 +176,7 @@ class AgentImplTest {
 
 	@Test
 	void documentAgentTruncatesLongAttachments() {
-		DocumentStore store = new DocumentStore(properties(100));
+		DocumentStore store = new InMemoryDocumentStore(properties(100));
 		StoredDocument doc = store.save("big.txt", "text/plain", "x".repeat(1_000), null);
 		DocumentAgent agent = new DocumentAgent(model.clientBuilder(), StubChatModel.memory(), resolver(store, 100));
 
@@ -189,7 +190,7 @@ class AgentImplTest {
 	@Test
 	void documentAgentRequiresAnAttachment() {
 		DocumentAgent agent = new DocumentAgent(model.clientBuilder(), StubChatModel.memory(),
-				resolver(new DocumentStore(properties(100)), 100));
+				resolver(new InMemoryDocumentStore(properties(100)), 100));
 
 		assertThatThrownBy(() -> agent.handle(AgentRequest.of("q")))
 			.isInstanceOf(InvalidAgentRequestException.class)

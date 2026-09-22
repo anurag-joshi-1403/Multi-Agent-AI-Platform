@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /**
  * Platform-level knobs, bound from {@code platform.*} in application.properties.
  *
+ * @param storage   where documents and conversation memory are kept
  * @param cors      browser origin patterns allowed to call the API directly (the Vite proxy needs none)
  * @param memory    conversation memory settings
  * @param documents document upload / context settings
@@ -15,10 +16,26 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  */
 @ConfigurationProperties(prefix = "platform")
 public record PlatformProperties(
+		@DefaultValue("jdbc") Storage storage,
 		@DefaultValue Cors cors,
 		@DefaultValue Memory memory,
 		@DefaultValue Documents documents,
 		@DefaultValue Auth auth) {
+
+	/**
+	 * Which persistence backend to use. {@link #JDBC} is the default and the only one that survives
+	 * a restart; {@link #MEMORY} is the pre-persistence behaviour, kept so the platform can still be
+	 * run with no database at all (see the {@code memory} profile).
+	 */
+	public enum Storage {
+
+		/** Documents and conversation memory in the database. Needs a datasource. */
+		JDBC,
+
+		/** Everything in RAM, forgotten on restart. Needs nothing. */
+		MEMORY
+
+	}
 
 	/**
 	 * Vite falls back to the next free port (5174, 5175, ...) whenever 5173 is taken, so the

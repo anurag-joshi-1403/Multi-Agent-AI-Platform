@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local database ###
+# H2 files for the default persistence setup (Backend/data/platform.mv.db).
+data/

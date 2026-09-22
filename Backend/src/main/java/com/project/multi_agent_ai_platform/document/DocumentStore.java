@@ -1,82 +1,56 @@
 package com.project.multi_agent_ai_platform.document;
 
-import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.springframework.stereotype.Component;
-
-import com.project.multi_agent_ai_platform.config.PlatformProperties;
 
 /**
- * In-memory document store with a fixed capacity: once {@code platform.documents.max-stored} is
- * reached the oldest upload is evicted. Good enough for a single-node developer platform; a
- * persistent store can replace it without touching the agent or the controller.
+ * Where uploaded documents live between the upload call and the agent call that reads them.
+ * <p>
+ * Two implementations ship: {@link JdbcDocumentStore}, the default, which survives a restart, and
+ * {@link InMemoryDocumentStore}, which does not but needs no database. {@code platform.storage}
+ * picks one. Nothing above this interface — not {@code DocumentController}, not
+ * {@link AttachmentResolver}, not any agent — knows which is in use.
+ * <p>
+ * Both honour {@code platform.documents.max-stored}: once that many documents are held, saving a
+ * new one evicts the oldest. {@link AttachmentResolver} is built to expect that, so a conversation
+ * replaying an id that has since been evicted degrades instead of failing.
  */
-@Component
-public class DocumentStore {
+public interface DocumentStore {
 
-	private static final String ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+	/**
+	 * Store extracted text under a freshly generated id.
+	 *
+	 * @param pages page count for PDFs, {@code null} for anything else
+	 */
+	StoredDocument save(String name, String mediaType, String content, Integer pages);
 
-	private final Map<String, StoredDocument> documents = new ConcurrentHashMap<>();
+	/** The document, or {@link Optional#empty()} when the id is unknown, {@code null} or evicted. */
+	Optional<StoredDocument> find(String id);
 
-	private final SecureRandom random = new SecureRandom();
+	/** @return {@code true} if the id existed; {@code false} makes repeat deletes harmless */
+	boolean delete(String id);
 
-	private final int maxStored;
+	/** Every stored document, newest first. */
+	List<StoredDocument> all();
 
-	public DocumentStore(PlatformProperties properties) {
-		this.maxStored = Math.max(1, properties.documents().maxStored());
-	}
+	int size();
 
-	public StoredDocument save(String name, String mediaType, String content, Integer pages) {
-		String id = newId();
-		StoredDocument doc = new StoredDocument(id, name, mediaType, content, pages, Instant.now());
-		documents.put(id, doc);
-		evictIfNeeded();
-		return doc;
-	}
-
-	public StoredDocument get(String id) {
+	/** Like {@link #find(String)}, for callers that treat a missing document as a {@code 404}. */
+	default StoredDocument get(String id) {
 		return find(id).orElseThrow(() -> new DocumentNotFoundException(id));
 	}
 
-	public Optional<StoredDocument> find(String id) {
-		return Optional.ofNullable(id).map(documents::get);
-	}
-
-	public boolean delete(String id) {
-		return documents.remove(id) != null;
-	}
-
-	/** Newest first. */
-	public List<StoredDocument> all() {
-		List<StoredDocument> list = new ArrayList<>(documents.values());
-		list.sort(Comparator.comparing(StoredDocument::uploadedAt).reversed());
-		return list;
-	}
-
-	public int size() {
-		return documents.size();
-	}
-
-	private void evictIfNeeded() {
-		while (documents.size() > maxStored) {
-			documents.values().stream()
-				.min(Comparator.comparing(StoredDocument::uploadedAt))
-				.ifPresent(oldest -> documents.remove(oldest.id()));
-		}
-	}
-
-	private String newId() {
-		StringBuilder sb = new StringBuilder("doc_");
-		for (int i = 0; i < 12; i++) {
-			sb.append(ALPHABET.charAt(random.nextInt(ALPHABET.length())));
-		}
-		return sb.toString();
+	/**
+	 * The upload timestamp every implementation stamps a document with, truncated to microseconds.
+	 * <p>
+	 * {@link Instant#now()} is nanosecond-resolution on modern JDKs, but {@code TIMESTAMP} keeps only
+	 * microseconds in both PostgreSQL and H2. Without truncating here, {@link #save} would hand back
+	 * a document whose {@code uploadedAt} no later {@link #find} could reproduce — the two would
+	 * differ in the last three digits. Rounding once, up front, keeps the stores agreeing.
+	 */
+	static Instant now() {
+		return Instant.now().truncatedTo(ChronoUnit.MICROS);
 	}
 }

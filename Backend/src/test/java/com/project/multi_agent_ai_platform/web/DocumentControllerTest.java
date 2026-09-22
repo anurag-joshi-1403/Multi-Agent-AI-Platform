@@ -24,12 +24,12 @@ import org.springframework.test.web.servlet.MvcResult;
 import com.jayway.jsonpath.JsonPath;
 import com.project.multi_agent_ai_platform.config.PlatformProperties;
 import com.project.multi_agent_ai_platform.config.SecurityConfig;
-import com.project.multi_agent_ai_platform.document.DocumentStore;
+import com.project.multi_agent_ai_platform.document.InMemoryDocumentStore;
 import com.project.multi_agent_ai_platform.document.DocumentTextExtractor;
 import com.project.multi_agent_ai_platform.document.TestPdf;
 
 @WebMvcTest(DocumentController.class)
-@Import({ SecurityConfig.class, DocumentStore.class, DocumentTextExtractor.class, AgentControllerTest.ProviderConfig.class })
+@Import({ SecurityConfig.class, InMemoryDocumentStore.class, DocumentTextExtractor.class, AgentControllerTest.ProviderConfig.class })
 @EnableConfigurationProperties(PlatformProperties.class)
 class DocumentControllerTest {
 	// Authenticated by default via AgentControllerTest.ProviderConfig#authenticatedByDefault.

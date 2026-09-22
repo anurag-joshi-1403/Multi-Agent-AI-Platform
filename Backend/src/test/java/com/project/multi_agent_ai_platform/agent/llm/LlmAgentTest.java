@@ -17,17 +17,17 @@ import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.config.PlatformProperties;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
-import com.project.multi_agent_ai_platform.document.DocumentStore;
+import com.project.multi_agent_ai_platform.document.InMemoryDocumentStore;
 
 class LlmAgentTest {
 
 	private final StubChatModel model = new StubChatModel();
 
 	private static AttachmentResolver resolver() {
-		PlatformProperties properties = new PlatformProperties(new PlatformProperties.Cors(List.of()),
+		PlatformProperties properties = new PlatformProperties(PlatformProperties.Storage.MEMORY, new PlatformProperties.Cors(List.of()),
 				new PlatformProperties.Memory(20), new PlatformProperties.Documents(60_000, 50),
 				new PlatformProperties.Auth("tester:tester"));
-		return new AttachmentResolver(new DocumentStore(properties), properties);
+		return new AttachmentResolver(new InMemoryDocumentStore(properties), properties);
 	}
 
 	/** Smallest possible concrete agent for exercising the base class. */
