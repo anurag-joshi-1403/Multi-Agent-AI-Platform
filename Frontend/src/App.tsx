@@ -14,6 +14,7 @@ import { OverviewPage } from './pages/OverviewPage'
 import { PlaygroundPage } from './pages/PlaygroundPage'
 import { SettingsPage } from './pages/SettingsPage'
 import type { AuthApi } from './hooks/useAuth'
+import type { Theme } from './hooks/useTheme'
 import './app.css'
 
 /**
@@ -23,6 +24,10 @@ import './app.css'
  */
 function App() {
   const auth = useAuth()
+  // Called once here rather than inside Console, so the login screen and the console share the
+  // same theme state (and the same localStorage key) instead of two independent hook instances
+  // that would only happen to agree at mount.
+  const [theme, toggleTheme] = useTheme()
 
   if (auth.status === 'checking') {
     return (
@@ -33,15 +38,14 @@ function App() {
   }
 
   if (auth.status === 'anonymous') {
-    return <LoginPage onLogin={auth.login} checkError={auth.checkError} />
+    return <LoginPage onLogin={auth.login} checkError={auth.checkError} theme={theme} onToggleTheme={toggleTheme} />
   }
 
-  return <Console auth={auth} />
+  return <Console auth={auth} theme={theme} toggleTheme={toggleTheme} />
 }
 
-function Console({ auth }: { auth: AuthApi }) {
+function Console({ auth, theme, toggleTheme }: { auth: AuthApi; theme: Theme; toggleTheme: () => void }) {
   const [route, navigate] = useHashRoute()
-  const [theme, toggleTheme] = useTheme()
   const [sidebarCollapsed, toggleSidebar] = useAutoCollapseOnRoute(route)
   const { agents, loading, reload } = useAgents()
   const conversations = useConversations()

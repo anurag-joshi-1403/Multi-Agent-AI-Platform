@@ -10,18 +10,25 @@ import {
   IconLock,
   IconMail,
   IconMenu,
+  IconMoon,
   IconPanelRight,
   IconPaperclip,
+  IconSun,
   IconX,
 } from '../components/Icons'
 import { loadString, saveString, STORAGE_KEYS } from '../lib/storage'
 import '../login.css'
+import type { Theme } from '../hooks/useTheme'
 
 interface Props {
   onLogin: (username: string, password: string) => Promise<void>
   /** Set when the initial session check itself failed (backend unreachable) — shown as a hint,
    * not an error, since it isn't the result of anything the person did. */
   checkError: string | null
+  /** Shared with the console via `App` — one dark/light preference for the whole app, login screen
+   * included, rather than this page defaulting to light regardless of what was chosen inside. */
+  theme: Theme
+  onToggleTheme: () => void
 }
 
 const NAV = [
@@ -78,7 +85,7 @@ function scrollToSection(id: string) {
  * between "outside" and "inside" — a backend that can't be reached means nobody can sign in, same
  * as any other login screen.
  */
-export function LoginPage({ onLogin, checkError }: Props) {
+export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) {
   const remembered = loadString(STORAGE_KEYS.rememberUser)
   const [username, setUsername] = useState(remembered ?? '')
   const [password, setPassword] = useState('')
@@ -89,6 +96,7 @@ export function LoginPage({ onLogin, checkError }: Props) {
   const [busy, setBusy] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState<string>('home')
+  const [scrolled, setScrolled] = useState(false)
   const usernameRef = useRef<HTMLInputElement>(null)
 
   // Highlight the nav link for whichever section is in view.
@@ -106,6 +114,18 @@ export function LoginPage({ onLogin, checkError }: Props) {
     return () => observer.disconnect()
   }, [])
 
+  // Give the sticky nav a solid backing once the hero has scrolled underneath it — the translucent,
+  // blurred look reads fine over the hero itself, but a card or section edge sliding under a
+  // half-see-through bar looks unfinished.
+  useEffect(() => {
+    function onScroll() {
+      setScrolled(window.scrollY > 8)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   function go(e: MouseEvent, id: string) {
     e.preventDefault()
     setMenuOpen(false)
@@ -117,6 +137,13 @@ export function LoginPage({ onLogin, checkError }: Props) {
     setMenuOpen(false)
     scrollToSection('home')
     usernameRef.current?.focus()
+  }
+
+  function goToSignUp(e: MouseEvent) {
+    e.preventDefault()
+    setMenuOpen(false)
+    scrollToSection('home')
+    show('signup')
   }
 
   function show(kind: keyof typeof NOTICES) {
@@ -152,11 +179,11 @@ export function LoginPage({ onLogin, checkError }: Props) {
 
   return (
     <div className="auth-page">
-      <header className="ap-nav">
+      <header className={`ap-nav ${scrolled ? 'ap-nav-scrolled' : ''}`}>
         <div className="ap-nav-inner">
           <a className="ap-brand" href="#home" onClick={(e) => go(e, 'home')} aria-label="Multi-Agent AI Platform home">
             <span className="ap-brand-mark" aria-hidden>
-              <IconBot width={18} height={18} />
+              <IconBot width={16} height={16} />
             </span>
             <span>Multi-Agent AI</span>
           </a>
@@ -176,11 +203,28 @@ export function LoginPage({ onLogin, checkError }: Props) {
             <a href="#home" className="ap-mobile-only" onClick={goToLogin}>
               Login
             </a>
+            <a href="#home" className="ap-mobile-only ap-mobile-secondary" onClick={goToSignUp}>
+              Sign up
+            </a>
           </nav>
 
-          <a href="#home" className="ap-btn ap-btn-primary ap-nav-login ap-desktop-only" onClick={goToLogin}>
-            Login
-          </a>
+          <div className="ap-nav-actions">
+            <button
+              type="button"
+              className="ap-theme-toggle"
+              onClick={onToggleTheme}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            >
+              {theme === 'dark' ? <IconSun /> : <IconMoon />}
+            </button>
+            <a href="#home" className="ap-btn ap-btn-outline ap-desktop-only" onClick={goToSignUp}>
+              Sign up
+            </a>
+            <a href="#home" className="ap-btn ap-btn-primary ap-desktop-only" onClick={goToLogin}>
+              Login
+            </a>
+          </div>
 
           <button
             type="button"
@@ -220,19 +264,24 @@ export function LoginPage({ onLogin, checkError }: Props) {
                 Couldn&rsquo;t reach the backend to check for a saved session: {checkError}
               </p>
             )}
+            {!error && !notice && !checkError && (
+              <p className="ap-hint">
+                Local instance default: <code>admin</code> / <code>admin</code> (set{' '}
+                <code>AUTH_USERS</code> on the backend to change this).
+              </p>
+            )}
 
             <label className="ap-field">
-              <span className="ap-label">Email or username</span>
+              <span className="ap-label">Username</span>
               <span className="ap-input-wrap">
                 <IconMail className="ap-input-icon" />
                 <input
                   ref={usernameRef}
                   className="ap-input"
                   type="text"
-                  inputMode="email"
                   autoComplete="username"
                   autoFocus
-                  placeholder="you@example.com"
+                  placeholder="Enter your username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   disabled={busy}

@@ -1,9 +1,15 @@
 /* ============================================================
-   Login / public page — light theme only.
-   Own token scope (--ap-*) so the console's dark/light toggle
-   never affects this screen; nothing here reads the global --bg
-   family of variables.
+   Login / public page.
+   Own token scope (--ap-*), separate from the console's --bg
+   family, so this page can carry its own light/dark palette
+   without depending on how app.css themes the console. The two
+   dark/light TOGGLES are shared, though: both read/write the
+   same `useTheme` state, applied as [data-theme] on <html>, so
+   switching in one place is remembered in the other.
    ============================================================ */
+html:has(.auth-page) {
+  scroll-behavior: smooth;
+}
 .auth-page {
   --ap-bg: #f5f7fb;
   --ap-surface: #ffffff;
@@ -33,6 +39,30 @@
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
 }
+:root[data-theme='dark'] .auth-page {
+  --ap-bg: #0b0d12;
+  --ap-surface: #12151d;
+  --ap-text: #e7eaf2;
+  --ap-text-2: #cdd3e3;
+  --ap-muted: #99a1b7;
+  --ap-faint: #666f87;
+  --ap-border: #232838;
+  --ap-border-strong: #333c58;
+  --ap-hover: #1a1f2c;
+  --ap-primary: #7c74ff;
+  --ap-primary-hover: #8f88ff;
+  --ap-primary-soft: rgba(124, 116, 255, 0.16);
+  --ap-ring: rgba(124, 116, 255, 0.35);
+  --ap-danger: #f87171;
+  --ap-danger-soft: rgba(248, 113, 113, 0.12);
+  --ap-danger-border: rgba(248, 113, 113, 0.35);
+  --ap-info: #60a5fa;
+  --ap-info-soft: rgba(96, 165, 250, 0.12);
+  --ap-info-border: rgba(96, 165, 250, 0.35);
+  --ap-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
+}
 .auth-page a {
   color: inherit;
   text-decoration: none;
@@ -44,38 +74,73 @@
 }
 
 /* ---------- Navbar ---------- */
+/* A floating pill rather than an edge-to-edge bar: inset from the top and sides, capped at
+   1120px and centered so it stays a contained capsule instead of stretching full-width on wide
+   screens, and shrinking down to a fixed 16px side gutter below that. */
 .ap-nav {
   position: sticky;
-  top: 0;
+  top: 12px;
   z-index: 50;
+  width: calc(100% - 32px);
+  max-width: 1120px;
+  margin: 12px auto 0;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.86);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--ap-border);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--ap-border);
+  box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.12);
+  /* Own compositor layer: without this, the browser re-blurs whatever scrolls underneath
+     on every frame instead of just compositing an already-blurred layer — the main source
+     of scroll jank on this page. */
+  will-change: transform;
+  transform: translateZ(0);
+  /* Only the properties .ap-nav-scrolled actually changes — narrowed rather than `all` so this
+     never fights the hover/focus transitions declared on things inside the nav. */
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+:root[data-theme='dark'] .ap-nav {
+  background: rgba(11, 13, 18, 0.82);
+  box-shadow: 0 6px 20px -12px rgba(0, 0, 0, 0.5);
+}
+/* Applied once the page has scrolled even slightly (LoginPage's scroll listener) — the border
+   firms up and the pill gains more shadow and opacity, so it reads as sitting clearly above
+   whatever section has scrolled underneath it rather than floating at the same weight throughout. */
+.ap-nav.ap-nav-scrolled {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: var(--ap-border-strong);
+  box-shadow: 0 10px 28px -12px rgba(15, 23, 42, 0.24);
+}
+:root[data-theme='dark'] .ap-nav.ap-nav-scrolled {
+  background: rgba(11, 13, 18, 0.97);
+  border-color: var(--ap-border-strong);
+  box-shadow: 0 10px 28px -12px rgba(0, 0, 0, 0.65);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ap-nav {
+    transition: none;
+  }
 }
 .ap-nav-inner {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 0 24px;
-  height: 64px;
+  padding: 0 22px;
+  height: 56px;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   position: relative;
 }
 .ap-brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14.5px;
   letter-spacing: -0.01em;
 }
 .ap-brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 29px;
+  height: 29px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
   color: #fff;
@@ -94,7 +159,7 @@
 }
 .ap-links a {
   position: relative;
-  padding: 8px 12px;
+  padding: 7px 11px;
   border-radius: 8px;
   color: var(--ap-muted);
   font-weight: 500;
@@ -118,25 +183,50 @@
   border-radius: 2px;
   background: var(--ap-primary);
 }
-.ap-nav-login {
+.ap-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: 8px;
+}
+.ap-nav-actions .ap-btn {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.ap-theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  color: var(--ap-text-2);
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+.ap-theme-toggle:hover {
+  background: var(--ap-hover);
+  color: var(--ap-text);
+}
+.ap-theme-toggle svg {
+  width: 18px;
+  height: 18px;
 }
 .ap-burger {
   display: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
   place-items: center;
   color: var(--ap-text-2);
-  margin-left: auto;
   transition: background 0.15s ease;
 }
 .ap-burger:hover {
   background: var(--ap-hover);
 }
 .ap-burger svg {
-  width: 22px;
-  height: 22px;
+  width: 19px;
+  height: 19px;
 }
 .ap-mobile-only {
   display: none;
@@ -184,6 +274,9 @@
   background: var(--ap-hover);
   border-color: #b6c0d2;
 }
+:root[data-theme='dark'] .ap-btn-outline:hover {
+  border-color: #454e70;
+}
 .ap-btn-lg {
   height: 48px;
   font-size: 15px;
@@ -212,6 +305,11 @@
   border-color: #b6c0d2;
   box-shadow: 0 4px 14px -10px rgba(15, 23, 42, 0.4);
 }
+:root[data-theme='dark'] .ap-btn-google:hover {
+  background: #171b26;
+  border-color: #454e70;
+  box-shadow: 0 4px 14px -10px rgba(0, 0, 0, 0.5);
+}
 .ap-spinner {
   width: 16px;
   height: 16px;
@@ -225,12 +323,19 @@
 .ap-hero {
   position: relative;
   overflow: hidden;
-  min-height: calc(100vh - 64px);
+  /* The nav's flow height is no longer just its own box: it's a 12px top margin plus a 56px pill
+     (~70px total) rather than a flush 64px bar. */
+  min-height: calc(100vh - 70px);
   display: grid;
   place-items: center;
   padding: 64px 24px 80px;
   background: linear-gradient(180deg, #eef2ff 0%, #f5f7fb 70%);
-  scroll-margin-top: 64px;
+  /* Clearance for a jump-to-section link: the floating pill's 12px gap + 56px height, plus a
+     little breathing room so a heading doesn't land flush against it. */
+  scroll-margin-top: 88px;
+}
+:root[data-theme='dark'] .ap-hero {
+  background: linear-gradient(180deg, #141726 0%, #0b0d12 70%);
 }
 /* Soft, out-of-focus shapes. Blurred enough to read as colour washes, not objects. */
 .ap-blob {
@@ -238,6 +343,10 @@
   border-radius: 50%;
   filter: blur(70px);
   pointer-events: none;
+  /* Same compositor-layer fix as .ap-nav: these scroll with the page, so without layer
+     promotion the browser redoes the (expensive) 70px blur on every scroll frame. */
+  will-change: transform;
+  transform: translateZ(0);
 }
 .ap-blob-1 {
   width: 460px;
@@ -263,6 +372,20 @@
   background: #e0e7ff;
   opacity: 0.55;
 }
+/* Same washes, recoloured as a glow on dark rather than a tint on light — pale pastels would all
+   but disappear against #0b0d12, so these are the saturated versions of the same three hues. */
+:root[data-theme='dark'] .ap-blob-1 {
+  background: #4338ca;
+  opacity: 0.4;
+}
+:root[data-theme='dark'] .ap-blob-2 {
+  background: #1d4ed8;
+  opacity: 0.35;
+}
+:root[data-theme='dark'] .ap-blob-3 {
+  background: #6d28d9;
+  opacity: 0.3;
+}
 .ap-hero::before {
   /* faint dot grid, faded toward the edges so it never competes with the card */
   content: '';
@@ -274,6 +397,10 @@
   -webkit-mask-image: radial-gradient(60% 60% at 50% 50%, #000 0%, transparent 100%);
   mask-image: radial-gradient(60% 60% at 50% 50%, #000 0%, transparent 100%);
   pointer-events: none;
+}
+:root[data-theme='dark'] .ap-hero::before {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+  opacity: 0.5;
 }
 .ap-card {
   position: relative;
@@ -289,6 +416,9 @@
   flex-direction: column;
   gap: 16px;
   animation: ap-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+:root[data-theme='dark'] .ap-card {
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 .ap-card h1 {
   font-size: 26px;
@@ -349,6 +479,9 @@
 .ap-input:disabled {
   background: #f8fafc;
   color: var(--ap-muted);
+}
+:root[data-theme='dark'] .ap-input:disabled {
+  background: #171b26;
 }
 .ap-input-wrap:focus-within .ap-input-icon {
   color: var(--ap-primary);
@@ -444,6 +577,19 @@
   color: var(--ap-info);
   border-color: var(--ap-info-border);
 }
+.ap-hint {
+  margin: -4px 0 0;
+  font-size: 12.5px;
+  color: var(--ap-faint);
+  text-align: center;
+}
+.ap-hint code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--ap-hover);
+  color: var(--ap-text-2);
+  font-size: 12px;
+}
 
 /* ---------- Content sections ---------- */
 .ap-band {
@@ -455,7 +601,7 @@
   max-width: 1120px;
   margin: 0 auto;
   padding: 80px 24px;
-  scroll-margin-top: 72px;
+  scroll-margin-top: 88px;
 }
 .ap-eyebrow {
   display: inline-block;
@@ -517,6 +663,10 @@
   transform: translateY(-3px);
   border-color: #c7d2fe;
   box-shadow: 0 18px 40px -20px rgba(79, 70, 229, 0.35);
+}
+:root[data-theme='dark'] .ap-feature:hover {
+  border-color: #4338ca;
+  box-shadow: 0 18px 40px -20px rgba(124, 116, 255, 0.4);
 }
 .ap-feature-icon {
   width: 40px;
@@ -594,10 +744,18 @@
   .ap-desktop-only {
     display: none;
   }
+  /* .ap-links goes position: absolute below, dropping out of the flex row — it's what supplies
+     the margin-left: auto that pushes this group to the right on desktop, so nav-actions (now
+     holding just the theme toggle) needs its own to keep the same right-aligned position. */
+  .ap-nav-actions {
+    margin-left: auto;
+  }
   .ap-burger {
     display: grid;
   }
   .ap-links {
+    /* A separate floating panel below the pill, not attached to it — an 8px gap plus its own
+       full rounding and border, rather than corners that would have to line up with the pill's. */
     position: absolute;
     top: 64px;
     left: 0;
@@ -608,9 +766,13 @@
     gap: 2px;
     padding: 10px 12px 14px;
     background: var(--ap-surface);
-    border-bottom: 1px solid var(--ap-border);
+    border: 1px solid var(--ap-border);
+    border-radius: 20px;
     box-shadow: 0 12px 30px -16px rgba(15, 23, 42, 0.25);
     display: none;
+  }
+  :root[data-theme='dark'] .ap-links {
+    box-shadow: 0 12px 30px -16px rgba(0, 0, 0, 0.6);
   }
   .ap-links.open {
     display: flex;
@@ -637,6 +799,16 @@
   .ap-links a.ap-mobile-only:hover {
     background: var(--ap-primary-hover);
     color: #fff;
+  }
+  .ap-links a.ap-mobile-secondary {
+    background: var(--ap-surface);
+    color: var(--ap-text);
+    border: 1px solid var(--ap-border-strong);
+    margin-top: 10px;
+  }
+  .ap-links a.ap-mobile-secondary:hover {
+    background: var(--ap-hover);
+    color: var(--ap-text);
   }
   .ap-hero {
     padding: 44px 16px 64px;
