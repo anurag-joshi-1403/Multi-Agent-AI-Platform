@@ -13,7 +13,8 @@ class DocumentStoreTest {
 
 	private static DocumentStore storeWithCapacity(int maxStored) {
 		return new DocumentStore(new PlatformProperties(new PlatformProperties.Cors(List.of()),
-				new PlatformProperties.Memory(20), new PlatformProperties.Documents(1000, maxStored)));
+				new PlatformProperties.Memory(20), new PlatformProperties.Documents(1000, maxStored),
+				new PlatformProperties.Auth("tester:tester")));
 	}
 
 	@Test
