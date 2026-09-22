@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.ResourceAccessException;
@@ -67,6 +68,17 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 	@ExceptionHandler(UnsupportedDocumentException.class)
 	ProblemDetail unsupportedDocument(UnsupportedDocumentException ex) {
 		return problem(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported document", ex.getMessage());
+	}
+
+	/**
+	 * Wrong username/password on {@code POST /api/auth/login}. Deliberately generic — same message
+	 * whether the username doesn't exist or the password is wrong, so this can't be used to probe
+	 * for valid usernames. A request with no session at all never reaches a controller, so it can't
+	 * land here; that case is handled by the {@code AuthenticationEntryPoint} in {@code SecurityConfig}.
+	 */
+	@ExceptionHandler(AuthenticationException.class)
+	ProblemDetail authenticationFailed(AuthenticationException ex) {
+		return problem(HttpStatus.UNAUTHORIZED, "Invalid credentials", "Incorrect username or password.");
 	}
 
 	// --- provider SDK errors (non-2xx answers, after the SDK's own retries) -------------------
