@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { AgentAvatar } from '../components/AgentAvatar'
 import { EmptyState } from '../components/EmptyState'
 import {
   IconActivity,
+  IconArrowDown,
   IconArrowRight,
   IconBot,
   IconChat,
@@ -74,6 +75,8 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
       desc: online
         ? 'Talking to the Spring Boot API.'
         : 'Start the Spring Boot app on port 8080. Until then, replies are simulated so you can still explore.',
+      role: 'Bridges the console to real agents',
+      how: 'On load, the console pings GET /api/agents. A reply means the Spring Boot service is reachable, so every agent call after this goes to the real backend instead of the in-browser simulation.',
       link: href({ page: 'settings' }),
       linkText: 'Settings',
     },
@@ -85,6 +88,8 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
         : online && platform
           ? `Set ${platform.keyEnvVar} in the backend's environment and restart it. Until then agent runs return an error.`
           : 'Once the backend is up, export the API key for your chosen provider (Gemini, Claude or OpenAI).',
+      role: 'Authorises the backend to call an LLM',
+      how: 'The backend reads one *_API_KEY environment variable, chosen by AI_PROVIDER (Gemini by default). Without it, the app still boots and lists agents — but every run returns a clear 502 instead of a reply.',
       link: href({ page: 'settings' }),
       linkText: 'How',
     },
@@ -92,6 +97,8 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
       done: hasSent,
       title: 'Send your first message',
       desc: 'Pick an agent in the playground and ask it something — or click one of the suggested prompts.',
+      role: 'Exercises the full request pipeline',
+      how: 'The composer builds an AgentRequest (your text plus any attributes or attached files) and posts it to /api/agents/{id}/run. The orchestrator finds the agent and hands it off — the same path every message takes from here on.',
       link: href({ page: 'playground' }),
       linkText: 'Open playground',
     },
@@ -99,11 +106,14 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
       done: hasInspected,
       title: 'Inspect a response',
       desc: 'Click any agent reply to see its latency, model and metadata, and the exact request that produced it.',
+      role: 'Shows you what actually happened',
+      how: 'Clicking a reply opens the Inspector panel: round-trip latency, the model that answered, token usage, and the raw request and response bodies — useful for debugging a prompt or understanding what a run costs.',
       link: href({ page: 'playground' }),
       linkText: 'Playground',
     },
   ]
   const doneCount = steps.filter((s) => s.done).length
+  const [openStep, setOpenStep] = useState<string | null>(null)
 
   return (
     <div className="page">
@@ -130,22 +140,38 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
             <div className="progress-fill" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
           </div>
           <ol className="steps">
-            {steps.map((s, i) => (
-              <li key={s.title} className={`step ${s.done ? 'done' : ''}`}>
-                <span className="step-marker" aria-hidden>
-                  {s.done ? <IconCheck width={14} height={14} /> : i + 1}
-                </span>
-                <div className="grow">
-                  <div className="step-title">{s.title}</div>
-                  <div className="step-desc">{s.desc}</div>
-                </div>
-                {!s.done && (
-                  <a className="btn btn-sm" href={s.link}>
-                    {s.linkText} <IconArrowRight width={14} height={14} />
-                  </a>
-                )}
-              </li>
-            ))}
+            {steps.map((s, i) => {
+              const open = openStep === s.title
+              return (
+                <li key={s.title} className={`step ${s.done ? 'done' : ''}`}>
+                  <span className="step-marker" aria-hidden>
+                    {s.done ? <IconCheck width={14} height={14} /> : i + 1}
+                  </span>
+                  <div className="grow">
+                    <div className="step-title">{s.title}</div>
+                    <div className="step-desc">{s.desc}</div>
+                    <button
+                      type="button"
+                      className="step-how-toggle"
+                      onClick={() => setOpenStep(open ? null : s.title)}
+                      aria-expanded={open}
+                    >
+                      <span className="step-role">{s.role}</span>
+                      <span className="row" style={{ gap: 3 }}>
+                        {open ? 'Hide' : 'How it works'}
+                        <IconArrowDown width={11} height={11} className={open ? 'rotated' : ''} />
+                      </span>
+                    </button>
+                    {open && <p className="step-how fade-up">{s.how}</p>}
+                  </div>
+                  {!s.done && (
+                    <a className="btn btn-sm" href={s.link}>
+                      {s.linkText} <IconArrowRight width={14} height={14} />
+                    </a>
+                  )}
+                </li>
+              )
+            })}
           </ol>
         </section>
 
