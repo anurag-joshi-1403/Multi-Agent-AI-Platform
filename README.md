@@ -30,7 +30,7 @@ what came back.
 - [The agents](#the-agents)
 - [Architecture](#architecture)
 - [How a request flows](#how-a-request-flows)
-- [Backend reference](#backend-reference) — config, API, error mapping
+- [Backend reference](#backend-reference) — config, persistence, API, error mapping
 - [Frontend reference](#frontend-reference) — pages, structure, modes
 - [Add your own agent](#add-your-own-agent)
 - [Testing](#testing)
@@ -53,6 +53,7 @@ Beyond that core idea, the console behaves like a real chat product, not a demo:
 
 | Capability | Detail |
 |---|---|
+| **Real login** | A session-backed sign-in gates the whole console — nothing renders, not even simulation mode, until you're authenticated. |
 | **Per-agent conversations** | Each of the five agents keeps its own conversation list. Switching agents always opens a fresh chat; earlier threads stay filed under the agent they belong to. |
 | **Universal file attachments** | Attach a PDF or text file to *any* agent — click the paperclip next to Send, drop files on the chat, or paste them. Files stay in context for the rest of that conversation, not just the message they were attached to. |
 | **Edit & regenerate** | Edit a prompt you already sent; the stale reply is discarded and the agent answers the new text, ChatGPT-style. |
@@ -67,6 +68,8 @@ Beyond that core idea, the console behaves like a real chat product, not a demo:
 ## Quick start
 
 **Prerequisites:** Java 25, Node 20+, and an API key for one model provider (free tier is fine).
+No database to install — uploads and conversations persist to a file by default. See
+[Persistence](#persistence).
 
 Two terminals.
 
@@ -87,6 +90,9 @@ $env:GEMINI_API_KEY = "AIza..."
 Get a free Gemini key at <https://aistudio.google.com/apikey>. The app boots fine without a key —
 `/api/agents` and file uploads work — but every agent run answers `502` until one is set.
 
+On first start the backend creates `Backend/data/platform.mv.db` and its two tables. Uploads and
+conversations are still there after a restart, with nothing to install or configure.
+
 Prefer a different provider? Set `AI_PROVIDER` and the matching key — nothing else changes:
 
 | Provider | `AI_PROVIDER` | Key variable | Get a key | Default model |
@@ -106,6 +112,13 @@ model bean, so nothing else in the app changes when you switch.
 > committed to git; GitHub's push protection will reject a push that contains a real key, and
 > anyone who clones the repo would get it. See [Security notes](#security-notes).
 
+The console itself sits behind a login. Without `AUTH_USERS` set, it defaults to **`admin` /
+`admin`** — fine for trying the project locally, not for anything else:
+
+```bash
+export AUTH_USERS="you:apassword,guest:anotherpassword"   # username:password pairs, comma-separated
+```
+
 ### 2. Frontend — `http://localhost:5173`
 
 ```bash
@@ -115,13 +128,15 @@ npm run dev
 ```
 
 The dev server proxies `/api` to the backend, so there's no CORS setup to do locally. Open the
-printed URL, pick an agent from the header, and send a message. If the backend is up but no key is
-set, a banner names the exact variable to export.
+printed URL and sign in with one of the accounts from `AUTH_USERS` (or `admin` / `admin` if you
+didn't set one) — the console itself is what's behind that login, so this has to happen before
+anything else, including simulation mode. Once in, pick an agent from the header and send a
+message. If the backend is up but no model key is set, a banner names the exact variable to export.
 
 ### Verify everything works
 
 ```bash
-cd Backend  && ./mvnw test                     # 54 tests, stubbed model, no network or key needed
+cd Backend  && ./mvnw test                     # 72 tests, stubbed model, no Docker, network or key
 cd Frontend && npm run lint && npm run build    # type-check + bundle
 ```
 
@@ -176,10 +191,11 @@ button, because grounding an answer in a file is a universal need, not a documen
    `ChatClient` pre-loaded with the agent's system prompt, attaches Spring AI's `ChatMemory` per
    call when a `conversationId` is present, and folds any attached files into that call's system
    prompt (never into memory, so files don't bloat the replayed context).
-3. **`document`** — `DocumentStore` (capacity-bounded, in-memory, oldest evicted first),
-   `DocumentTextExtractor` (PDFBox for PDFs, UTF-8 for text formats), and `AttachmentResolver`,
-   which turns a request's `attachments` id list into the system-prompt block every `LlmAgent`
-   call injects.
+3. **`document`** — `DocumentStore`, an interface with two implementations (`JdbcDocumentStore`,
+   the default, and `InMemoryDocumentStore`), capacity-bounded either way with the oldest evicted
+   first; `DocumentTextExtractor` (PDFBox for PDFs, UTF-8 for text formats); and
+   `AttachmentResolver`, which turns a request's `attachments` id list into the system-prompt block
+   every `LlmAgent` call injects.
 
 **Frontend, mirrors the same shape:** `api/` talks to the backend (or simulates it), `hooks/` hold
 state (conversations in `localStorage`, agents, attachments, theme, route), `lib/` has the pure
@@ -249,16 +265,81 @@ an unrelated key.
 
 | Property | Default | Purpose |
 |---|---|---|
+| `platform.storage` | `jdbc` | Where documents and conversation memory live: `jdbc` (survives a restart) or `memory` (does not, but needs no database) |
 | `platform.cors.allowed-origin-patterns` | `http://localhost:*,http://127.0.0.1:*` | Origins allowed to call the API directly (the Vite proxy needs none of this) |
 | `platform.memory.max-messages` | `20` | Recent messages of a conversation replayed to the model |
 | `platform.documents.max-context-chars` | `60000` | Attached-file text is truncated to this before reaching the model, split evenly across multiple files |
-| `platform.documents.max-stored` | `50` | Oldest uploads are evicted once this many are held in memory |
+| `platform.documents.max-stored` | `50` | Oldest uploads are evicted once this many are held, whichever store is active |
+| `platform.auth.users` | `${AUTH_USERS:admin:admin}` | Console accounts, as comma-separated `username:password` pairs |
+
+### Persistence
+
+Uploaded documents and server-side conversation memory survive a restart. Two tables, each owned by
+whoever generates it:
+
+| Table | Holds | Schema from |
+|---|---|---|
+| `platform_documents` | Uploaded files: extracted text, media type, page count, upload time | [`schema.sql`](Backend/src/main/resources/schema.sql) |
+| `SPRING_AI_CHAT_MEMORY` | The messages replayed to the model per conversation | Spring AI's own per-dialect DDL |
+
+Both are created on boot, idempotently — there is no migration step to run.
+
+**Default: an H2 file** at `Backend/data/platform.mv.db` (gitignored). Nothing to install, nothing
+to configure, and data survives restarts. This is the right setting for a developer machine and it
+is what the project ships with.
+
+**Postgres**, for anything longer-lived. Either use the profile, which starts the service in
+[`compose.yaml`](Backend/compose.yaml) and wires the datasource from the running container —
+including the host port, which compose assigns dynamically, so no hardcoded URL would be correct:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=postgres    # needs Docker running
+```
+
+…or point at a Postgres you run yourself, which needs no profile:
+
+```bash
+export SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/agents"
+export SPRING_DATASOURCE_USERNAME="agents"
+export SPRING_DATASOURCE_PASSWORD="secret"
+```
+
+Both databases run the same `schema.sql` and the same JDBC code; only the dialect differs.
+
+**No persistence at all.** `platform.storage=memory` — which the `memory` profile sets, along with
+excluding the datasource auto-configuration entirely — restores the pre-persistence behaviour:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=memory
+```
+
+Everything works as before, and a restart forgets everything. The switch is one property because
+both halves move together: [`StorageConfig`](Backend/src/main/java/com/project/multi_agent_ai_platform/config/StorageConfig.java)
+picks `JdbcDocumentStore` or `InMemoryDocumentStore`, and declaring an in-memory
+`ChatMemoryRepository` is what makes Spring AI's JDBC auto-configuration back off.
+
+Nothing above the [`DocumentStore`](Backend/src/main/java/com/project/multi_agent_ai_platform/document/DocumentStore.java)
+interface knows which implementation is in use — not the controller, not `AttachmentResolver`, not
+any agent. `AiConfig` never mentions a repository implementation either; it takes whichever
+`ChatMemoryRepository` bean exists and wraps it in the sliding window.
+
+**Accounts are still not persisted.** `AUTH_USERS` is read once on boot into an in-memory user
+store, so accounts, roles and password changes do not survive a restart. That is a separate,
+larger change — see the [roadmap](PROGRESS.md#-roadmap).
 
 ### API
 
-All `/api/**` endpoints are open (no auth) — this is a developer/single-user platform behind the
-Vite proxy. Remaining Actuator endpoints stay behind HTTP Basic. Every error is
-`application/problem+json`.
+Every `/api/**` endpoint except `POST /api/auth/login` requires a signed-in session — a request
+with no session gets a `401` in the same `application/problem+json` shape as every other error.
+Remaining Actuator endpoints stay behind HTTP Basic.
+
+**Auth**
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/api/auth/login` | `{username, password}` → `{username}` + a session cookie. `401` on wrong credentials — the same message either way, so it can't be used to probe for valid usernames |
+| `POST` | `/api/auth/logout` | Ends the session — `204` |
+| `GET` | `/api/auth/me` | The signed-in user, or `401` if there isn't one |
 
 **Platform & agents**
 
@@ -322,6 +403,8 @@ on any agent's `/run` call — not just the document agent's.
 |---|---|
 | Validation failure (blank message, message too long) | `400` |
 | Document agent called with no attached file | `400` |
+| No session, or a session that expired | `401` |
+| Wrong username/password on login | `401` |
 | Unknown agent id / unknown document id | `404` |
 | Unsupported or unreadable upload | `415` |
 | Provider rejected credentials (bad or missing key) | `502` |
@@ -342,9 +425,14 @@ Navigation is hash-based, so every page has a shareable, refresh-safe URL.
 | `#/agents` | Agents | Registry cards for every discovered agent, plus an "add a new agent" guide |
 | `#/settings` | Settings | API base URL override, simulation toggle, theme, clear local data |
 
+None of these routes are reachable until you sign in — the login screen sits in front of all of
+them, checked once via `GET /api/auth/me` so a page refresh doesn't sign you out. A session that
+dies mid-visit (backend restarted, timed out) is caught the same way any other call's `401` is, and
+sends you back to the login screen rather than silently switching to simulated replies.
+
 ### Offline & simulation mode
 
-The console probes `GET /api/agents` on load and behaves accordingly:
+Once signed in, the console probes `GET /api/agents` and behaves accordingly:
 
 | Mode | When | Behaviour |
 |---|---|---|
@@ -410,11 +498,28 @@ implement the `Agent` interface directly instead of extending `LlmAgent`.
 cd Backend && ./mvnw test
 ```
 
-54 tests, all offline against a stubbed chat model — no API key or network call required. They
-assert the *exact prompt* each agent sends: that the coding agent keeps its own system prompt and
-still gains an attached file's content, that multiple attachments split the character budget
+72 tests, all offline against a stubbed chat model — no API key, no network call, and no Docker.
+They assert the *exact prompt* each agent sends: that the coding agent keeps its own system prompt
+and still gains an attached file's content, that multiple attachments split the character budget
 evenly, that an evicted attachment id is skipped rather than failing the whole request, and that a
-failed provider call never leaves a dangling turn in conversation memory.
+failed provider call never leaves a dangling turn in conversation memory. A dedicated
+`AuthControllerTest` exercises the real session flow end to end rather than mocking it: login sets
+a cookie, that cookie authenticates the next request, wrong credentials are rejected without
+revealing which field was wrong, and logout actually ends the session.
+
+Persistence is tested rather than assumed. `DocumentStoreTest` is a **contract test**: one set of
+assertions run against *both* `DocumentStore` implementations, so a behaviour that holds for the
+in-memory store and not the database one fails the build instead of surfacing after a config
+change. The JDBC side runs on in-memory H2 against the real `schema.sql`, which is why the suite
+still needs no database server — the shipped DDL is the DDL under test, and Spring AI ships an H2
+chat-memory dialect alongside its Postgres one. Two wiring tests then assert what each mode
+actually builds, including that the `memory` profile's context contains no `DataSource` at all.
+
+> Writing that contract test immediately paid for itself: it caught `delete(null)` throwing from
+> the in-memory store where the database one returned `false`, and a timestamp that could not
+> round-trip because `Instant.now()` is nanosecond-resolution while `TIMESTAMP` keeps microseconds.
+> Both were real inconsistencies between the two stores, and neither was reachable by testing one
+> implementation alone.
 
 ```bash
 cd Frontend && npm run lint && npm run build
@@ -435,21 +540,29 @@ Backend/src/main/java/com/project/multi_agent_ai_platform/
 │   ├── llm/      LlmAgent — ChatClient + memory + attachment injection
 │   └── impl/     CodingAgent · ResearchAgent · SummarizerAgent
 │                 DocumentAgent · GeneralAgent
-├── document/     DocumentStore · DocumentTextExtractor · AttachmentResolver
-├── config/       AiConfig · LlmProvider(Info) · PlatformProperties · SecurityConfig
-└── web/          AgentController · DocumentController · ConversationController
-                  PlatformController · ApiExceptionHandler · dto/
+├── document/     DocumentStore (interface) · JdbcDocumentStore · InMemoryDocumentStore
+│                 DocumentTextExtractor · AttachmentResolver · DocumentIds
+├── config/       AiConfig · StorageConfig · LlmProvider(Info)
+│                 PlatformProperties · SecurityConfig
+└── web/          AgentController · AuthController · DocumentController
+                  ConversationController · PlatformController · ApiExceptionHandler · dto/
+
+Backend/src/main/resources/
+├── application.properties            provider, platform, persistence, web, actuator
+├── application-postgres.properties   Postgres via compose.yaml, instead of the H2 file
+├── application-memory.properties     the no-database profile
+└── schema.sql                        platform_documents (Spring AI owns the other table)
 
 Frontend/src/
 ├── api/          client.ts (real backend) · mock.ts (offline simulation)
-├── hooks/        useConversations · useAttachments · useAgents · usePlatform
-│                 useBackendStatus · useHashRoute · useSidebar
+├── hooks/        useAuth · useConversations · useAttachments · useAgents
+│                 usePlatform · useBackendStatus · useHashRoute · useSidebar
 │                 useAutoCollapseOnRoute · useTheme · useCopy
 ├── lib/          dispatch (send/edit flow) · attributes · agentColor
 │                 storage · util
 ├── components/   Composer · AgentOptions · MessageBubble · Markdown
 │                 Inspector · ConversationList · Sidebar · AgentAvatar · Icons
-└── pages/        OverviewPage · PlaygroundPage · AgentsPage · SettingsPage
+└── pages/        LoginPage · OverviewPage · PlaygroundPage · AgentsPage · SettingsPage
 ```
 
 ---
@@ -458,11 +571,18 @@ Frontend/src/
 
 | Symptom | Cause · fix |
 |---|---|
+| Stuck on the login screen with "Couldn't reach the backend" | The API is not reachable at `:8080`. Start it, then reload — there's no offline/simulated bypass for login itself. |
+| Login says *Invalid credentials* | Check `AUTH_USERS` on the backend (or use the `admin`/`admin` default if you never set it) — the message is the same for a wrong username as a wrong password, on purpose. |
+| Signed out unexpectedly mid-session | The session expired or the backend restarted. Sign in again — this is expected, not a bug. |
 | Banner: *Backend offline* | The API is not reachable at `:8080`. Start it, then click **Retry**. Replies are simulated until then. |
 | Banner: *No API key* | Backend is up but the active provider's key is unset. Export it and restart the backend. |
 | `502 — LLM provider rejected the credentials` | The key is wrong, expired or revoked. Issue a new one and export it again. |
 | `400 — The document agent needs at least one attached file` | Attach a file with the paperclip before asking the document agent. |
 | Agent reply seems to ignore an attached file | The store keeps only the 50 newest uploads; a very old attachment may have been evicted. Re-attach it. |
+| Backend won't start: *Unable to start command docker* | Only the `postgres` profile needs Docker. Start Docker Desktop, or drop the profile to use the default H2 file. |
+| Uploads and conversations vanish on every restart | You're on the `memory` profile (or `PLATFORM_STORAGE=memory`). That's what it does — drop the profile to keep data. |
+| Login fails with *404 Not Found* | The backend isn't running, so Vite has nothing to proxy `/api` to. Start it and check it reached *Started MultiAgentAiPlatformApplication*. |
+| Want a clean slate | Stop the backend and delete `Backend/data/` (or `docker compose down -v` on the `postgres` profile). Tables are recreated on the next boot. |
 | `git push` rejected: *repository rule violations / push protection* | A real secret is in a commit. Remove it from the file and scrub it from history before pushing — see below. |
 
 ---
@@ -476,9 +596,15 @@ Frontend/src/
   reaches the remote — that's a save, not an inconvenience. Rotate the exposed key immediately
   (treat it as compromised even if the push was blocked), fix the file to use a placeholder, then
   scrub the secret from local git history before pushing again.
-- `/api/**` is intentionally unauthenticated — this platform is built to run on a developer
-  machine behind the Vite dev proxy, not as a public multi-tenant service. Put it behind real auth
-  before exposing it beyond localhost.
+- **Change the default login before running this anywhere but your own machine.** `AUTH_USERS`
+  defaults to `admin:admin`, the same kind of loud, documented placeholder as the actuator
+  password Spring Boot itself generates — fine to explore the project with, not fine to leave as
+  a real account. Set `AUTH_USERS` to real `username:password` pairs first.
+- Session cookies are `HttpOnly` and same-origin through the Vite dev proxy in local development.
+  Serving the frontend and backend from different origins in a real deployment needs `Secure`
+  cookies and HTTPS — the session mechanism doesn't provide that on its own.
+- Passwords are BCrypt-hashed in memory on boot; the plaintext from `AUTH_USERS` is read once and
+  never written anywhere. There is no password-reset flow — change `AUTH_USERS` and restart.
 
 ---
 
