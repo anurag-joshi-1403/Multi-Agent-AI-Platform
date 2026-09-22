@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -21,12 +23,14 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcBuilderCustomizer;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 import com.anthropic.core.JsonValue;
 import com.google.genai.errors.ApiException;
@@ -56,6 +60,14 @@ class AgentControllerTest {
 		@Bean
 		LlmProvider llmProvider() {
 			return LlmProvider.GEMINI;
+		}
+
+		/** Every request in this test class runs as an authenticated user unless a test overrides
+		 * it (e.g. to assert the 401 case) — the security boundary itself is covered once per
+		 * controller rather than re-proven in every unrelated test. */
+		@Bean
+		MockMvcBuilderCustomizer authenticatedByDefault() {
+			return builder -> builder.defaultRequest(MockMvcRequestBuilders.get("/").with(user("tester")));
 		}
 	}
 
@@ -98,7 +110,16 @@ class AgentControllerTest {
 	}
 
 	@Test
-	void listsAgentsWithoutAuthentication() throws Exception {
+	void unauthenticatedRequestIs401ProblemDetail() throws Exception {
+		mvc.perform(get("/api/agents").with(anonymous()))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.title").value("Authentication required"));
+
+		verifyNoInteractions(registry);
+	}
+
+	@Test
+	void listsAgentsWhenAuthenticated() throws Exception {
 		when(registry.all()).thenReturn(List.of(agent("coding", "writes code"), agent("general", "chat")));
 
 		mvc.perform(get("/api/agents"))
