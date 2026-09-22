@@ -25,7 +25,8 @@ class LlmAgentTest {
 
 	private static AttachmentResolver resolver() {
 		PlatformProperties properties = new PlatformProperties(new PlatformProperties.Cors(List.of()),
-				new PlatformProperties.Memory(20), new PlatformProperties.Documents(60_000, 50));
+				new PlatformProperties.Memory(20), new PlatformProperties.Documents(60_000, 50),
+				new PlatformProperties.Auth("tester:tester"));
 		return new AttachmentResolver(new DocumentStore(properties), properties);
 	}
 
