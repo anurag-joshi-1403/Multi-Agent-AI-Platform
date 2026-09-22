@@ -1,6 +1,8 @@
 package com.project.multi_agent_ai_platform.web;
 
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,11 +13,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcBuilderCustomizer;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 import com.project.multi_agent_ai_platform.agent.core.Agent;
 import com.project.multi_agent_ai_platform.agent.core.AgentRegistry;
@@ -43,6 +47,11 @@ class PlatformControllerTest {
 		@Bean
 		LlmProviderInfo llmProviderInfo() {
 			return new LlmProviderInfo(LlmProvider.GEMINI, "gemini-2.5-flash", false);
+		}
+
+		@Bean
+		MockMvcBuilderCustomizer authenticatedByDefault() {
+			return builder -> builder.defaultRequest(MockMvcRequestBuilders.get("/").with(user("tester")));
 		}
 	}
 
@@ -84,5 +93,10 @@ class PlatformControllerTest {
 			.andExpect(jsonPath("$.documents.stored").value(0))
 			.andExpect(jsonPath("$.documents.maxStored").value(50))
 			.andExpect(jsonPath("$.apiKey").doesNotExist());
+	}
+
+	@Test
+	void unauthenticatedRequestIs401() throws Exception {
+		mvc.perform(get("/api/platform").with(anonymous())).andExpect(status().isUnauthorized());
 	}
 }
