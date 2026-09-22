@@ -49,6 +49,18 @@ export function subscribeBackendStatus(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
+// --- session-expiry notifications -------------------------------------------
+// http() catches every 401 itself (agents/documents calls treat it like any other failure and
+// fall back to simulation), so a session that dies mid-visit would otherwise go unnoticed here —
+// the console would keep running on fake replies instead of sending the person back to sign in.
+// useAuth is the one subscriber; it flips back to 'anonymous' on any 401 from anywhere.
+const authExpiredListeners = new Set<() => void>()
+
+export function subscribeAuthExpired(listener: () => void): () => void {
+  authExpiredListeners.add(listener)
+  return () => authExpiredListeners.delete(listener)
+}
+
 // --- config ----------------------------------------------------------------
 export function apiBase(): string {
   const stored = loadString(STORAGE_KEYS.apiBase)
@@ -70,7 +82,13 @@ function simulated(): boolean {
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (init?.body && !(init.body instanceof FormData)) headers['Content-Type'] = 'application/json'
-  const res = await fetch(apiBase() + path, { ...init, headers: { ...headers, ...(init?.headers ?? {}) } })
+  // The session cookie from /auth/login must travel with every call, including cross-origin ones
+  // (e.g. VITE_API_BASE pointed straight at the backend instead of through the dev proxy).
+  const res = await fetch(apiBase() + path, {
+    ...init,
+    credentials: 'include',
+    headers: { ...headers, ...(init?.headers ?? {}) },
+  })
   if (!res.ok) {
     let detail = `${res.status} ${res.statusText}`
     let title: string | undefined
@@ -81,6 +99,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // non-JSON body
     }
+    if (res.status === 401) authExpiredListeners.forEach((l) => l())
     throw new ApiError(res.status, detail, title)
   }
   if (res.status === 204) return undefined as T
@@ -154,6 +173,33 @@ export async function uploadDocument(file: File): Promise<DocumentSummary> {
 export async function deleteDocument(id: string): Promise<void> {
   if (simulated()) return mockDeleteDocument(id)
   await http<void>(`/documents/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+// --- auth --------------------------------------------------------------------
+// Unlike everything above, these never go through the simulation fallback — logging in always
+// talks to the real backend. Simulation mode is a setting reached from inside the console, and the
+// console is what login gates, so there is nothing upstream of login for it to bypass.
+export interface AuthUser {
+  username: string
+}
+
+export async function login(username: string, password: string): Promise<AuthUser> {
+  return http<AuthUser>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
+}
+
+export async function logout(): Promise<void> {
+  await http<void>('/auth/logout', { method: 'POST' })
+}
+
+/** The signed-in user for the current session, or `null` if there isn't one. Only network failures
+ * or unexpected server errors throw — "not logged in" is an ordinary result, not an exception. */
+export async function me(): Promise<AuthUser | null> {
+  try {
+    return await http<AuthUser>('/auth/me')
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) return null
+    throw err
+  }
 }
 
 // --- conversations ---------------------------------------------------------
