@@ -41,4 +41,5 @@ export const STORAGE_KEYS = {
   simulate: 'maap.simulate',
   sidebar: 'maap.sidebar',
   inspector: 'maap.inspector',
+  rememberUser: 'maap.rememberUser',
 } as const
