@@ -24,7 +24,7 @@ class AgentImplTest {
 
 	private static PlatformProperties properties(int maxContextChars) {
 		return new PlatformProperties(new PlatformProperties.Cors(List.of()), new PlatformProperties.Memory(20),
-				new PlatformProperties.Documents(maxContextChars, 50));
+				new PlatformProperties.Documents(maxContextChars, 50), new PlatformProperties.Auth("tester:tester"));
 	}
 
 	private static AttachmentResolver resolver(DocumentStore store, int maxContextChars) {
