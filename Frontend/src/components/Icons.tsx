@@ -223,6 +223,16 @@ export function IconFile(p: IconProps) {
   )
 }
 
+export function IconLogout(p: IconProps) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  )
+}
+
 export function IconKey(p: IconProps) {
   return (
     <svg {...base} {...p}>
@@ -254,6 +264,76 @@ export function IconInfo(p: IconProps) {
     <svg {...base} {...p}>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 11v5M12 8h.01" />
+    </svg>
+  )
+}
+
+export function IconMail(p: IconProps) {
+  return (
+    <svg {...base} {...p}>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="m3 7 9 6 9-6" />
+    </svg>
+  )
+}
+
+export function IconLock(p: IconProps) {
+  return (
+    <svg {...base} {...p}>
+      <rect x="4" y="11" width="16" height="10" rx="2.5" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  )
+}
+
+export function IconEye(p: IconProps) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+export function IconEyeOff(p: IconProps) {
+  return (
+    <svg {...base} {...p}>
+      <path d="m3 3 18 18" />
+      <path d="M10.6 5.2A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.4 17.4 0 0 1-3.2 4.1" />
+      <path d="M6.6 6.6C3.7 8.6 2 12 2 12s3.5 7 10 7c1.6 0 3-.4 4.3-1" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  )
+}
+
+export function IconMenu(p: IconProps) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  )
+}
+
+/** Google's four-colour "G" — filled, so it deliberately skips the stroke-based `base` props. */
+export function IconGoogle(p: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={18} height={18} aria-hidden {...p}>
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.57c2.08-1.92 3.27-4.74 3.27-8.09Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.76c-.98.66-2.23 1.05-3.71 1.05-2.86 0-5.28-1.93-6.15-4.52H2.17v2.84A11 11 0 0 0 12 23Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.85 14.11A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.35-2.11V7.05H2.17A11 11 0 0 0 1 12c0 1.78.43 3.45 1.17 4.95l3.68-2.84Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.65l3.15-3.15A11 11 0 0 0 12 1 11 11 0 0 0 2.17 7.05l3.68 2.84C6.72 7.31 9.14 5.38 12 5.38Z"
+      />
     </svg>
   )
 }
