@@ -32,6 +32,7 @@ import com.project.multi_agent_ai_platform.document.TestPdf;
 @Import({ SecurityConfig.class, DocumentStore.class, DocumentTextExtractor.class, AgentControllerTest.ProviderConfig.class })
 @EnableConfigurationProperties(PlatformProperties.class)
 class DocumentControllerTest {
+	// Authenticated by default via AgentControllerTest.ProviderConfig#authenticatedByDefault.
 
 	@Autowired
 	MockMvc mvc;
