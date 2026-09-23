@@ -17,7 +17,11 @@ For how to run and use the project, see [`README.md`](README.md).
 
 ---
 
-## 🧭 Quick status
+## 1. 🟢 Present Work Progress
+
+> Where the project stands right now — what works, what is on disk, and what is being finished.
+
+### 🧭 Quick status
 
 | | |
 |---|---|
@@ -29,9 +33,122 @@ For how to run and use the project, see [`README.md`](README.md).
 | 📚 **Docs** | 🟢 `README.md` + this file, both kept in sync with the real code |
 | 👥 **Persistent accounts** | 🔴 Not started — `AUTH_USERS` is still read into memory on boot |
 
+### 🏗️ How a request flows today
+
+```mermaid
+sequenceDiagram
+    actor U as 👤 You
+    participant L as 🔐 Login
+    participant UI as 🖥️ Console
+    participant O as ⚙️ Orchestrator
+    participant A as 🤖 Agent
+    participant M as ☁️ Gemini / Claude / OpenAI
+
+    U->>L: sign in
+    L-->>U: session cookie
+    U->>UI: message + options + files
+    UI->>O: POST /api/agents/{id}/run
+    O->>A: handle(request)
+    A->>M: prompt + attachments + memory
+    M-->>A: completion
+    A-->>UI: reply · Inspector
+```
+
+### ✅ Current Progress
+
+> Snapshot of the code on disk right now.
+
+#### ⚙️ Backend
+
+| Area | Status | Detail |
+|---|---|---|
+| 🤖 Agents | ✅ Done | 5 self-describing Spring beans: coding, research, summarizer, document, general |
+| ☁️ Model providers | ✅ Done | Gemini (default), Claude, OpenAI — one env var switches all of it |
+| 📎 File attachments | ✅ Done | Any agent, shared context budget, stale ids skipped gracefully |
+| 🧠 Conversation memory | ✅ Done | Last 20 messages replayed per conversation, forgettable on request |
+| ⚠️ Error handling | ✅ Done | RFC 9457 `problem+json` everywhere — including the `401`, which never reaches a controller |
+| 🔐 Authentication | ✅ Done | Session login, BCrypt accounts from `AUTH_USERS`, every route gated except `/auth/login` |
+| 🧪 Tests | ✅ 72 / 72 passing | All offline against a stubbed model and H2 — no API key, network or Docker |
+| 🗄️ Persistent storage | 🟡 Built, uncommitted | Documents + conversation memory in an H2 file by default, Postgres on a profile; verified by restarting a live server |
+| 👥 Persistent accounts | 🔴 Not started | `AUTH_USERS` still read into an in-memory user store on boot |
+| 🧭 Auto agent routing | 🔴 Not started | Caller still names the agent; orchestrator is shaped for a router later |
+
+#### 🖥️ Frontend
+
+| Area | Status | Detail |
+|---|---|---|
+| 🔐 Login gate | ✅ Done | Whole console sits behind it; no page mounts, and no API call fires, before auth resolves |
+| 🚪 Login landing page | ✅ Done | Hero, about, features, contact; sticky nav, mobile menu, own light theme independent of the console's |
+| 💬 Playground | ✅ Done | Per-agent chat lists, edit-and-regenerate, response inspector |
+| 🎨 Per-agent theming | ✅ Done | Deterministic accent color per agent, contrast-checked |
+| 📎 Attachments UI | ✅ Done | Paperclip, drag-and-drop, paste-to-attach, all agents |
+| 🧭 Offline / simulation | ✅ Done | Mirrors real behaviour once signed in; login itself always needs the backend |
+| 📦 Dependencies | ✅ Zero runtime deps | Plain React — no UI kit, no state library |
+| 🧹 Build health | ✅ Clean | `tsc -b`, `vite build`, ESLint (React 19 compiler rules) all pass |
+| 🔑 Third-party sign-in | 🟡 Placeholder | Google button and sign-up link are visible but answer with a notice |
+| 🌊 Streaming replies | 🔴 Not started | Replies arrive whole today, not token-by-token |
+
+**Legend:** ✅ done & committed &nbsp;·&nbsp; 🟡 partial / placeholder &nbsp;·&nbsp; 🔴 not started
+
+### 🚧 In flight
+
+> On disk, **not yet committed** — the working tree ahead of `8518e71`. All of
+> [Phase 10](#-phase-by-phase-history) is uncommitted too; what follows is the frontend work that
+> was already in progress when it started.
+
+| File | What's changing |
+|---|---|
+| `Frontend/src/pages/LoginPage.tsx` | A **Sign up** affordance beside Login (desktop nav and mobile menu), both routing to the honest "no self-service sign-up yet" notice. Username field relabelled from *Email or username* and no longer hints an email keyboard. A first-run hint naming the `admin` / `admin` default and how to change it. |
+| `Frontend/src/login.css` | Styles for the above, plus a **scroll-jank fix**: the sticky nav and the blurred background blobs are promoted to their own compositor layers, so the browser composites an already-blurred layer per frame instead of redoing a 70px blur while you scroll. |
+| `README.md` | Auth documented throughout — the login section of the quick start, the `platform.auth.users` row, the three `/api/auth/*` endpoints, the `401` rows in the error table, three new troubleshooting symptoms, and a rewritten security note replacing "`/api/**` is intentionally unauthenticated". |
+
+Placeholders the login screen deliberately shows but doesn't implement yet — **Continue with
+Google**, **Sign up**, **Forgot password** — each answer with a plain notice rather than a dead
+link. They're listed on the [roadmap](#-roadmap) below.
+
 ---
 
-## 🗺️ Timeline flowchart
+## 2. 🔭 Future Work Progress
+
+> What comes next, grouped by horizon.
+
+### 🚀 Roadmap
+
+#### Near-term
+- [ ] 🧭 **Automatic agent routing** — let an LLM (or a cheap classifier) pick the agent from the
+  message instead of the caller naming it.
+- [ ] 🌐 **Live web search** for the Research Agent, which is knowledge-only today and says so.
+- [ ] 🌊 **Streaming responses** — token-by-token to cut perceived latency on long answers.
+
+#### Mid-term
+- [x] 🗄️ **Persistent storage** — done in Phase 10, though the claim that motivated it was half
+  wrong: conversation memory really was a one-dependency swap, `DocumentStore` really was a
+  concrete class that had to be split first.
+- [ ] 🐘 **Run the `postgres` profile at least once** — it shares its schema and JDBC code with the
+  verified H2 path, but has never been started, because the machine has no Docker.
+- [ ] 🔑 **Back the login screen's promises** — self-service sign-up, Google OAuth and password
+  reset are all visible in the UI today and answered with a notice. Each one needs a real user
+  store first.
+- [ ] 📚 **Multi-file reasoning** for the Document Agent — cross-file comparison beyond today's
+  two-or-three-file case.
+- [ ] 💰 **Usage accounting** — token/cost totals per conversation, surfaced in the Inspector.
+
+#### Long-term
+- [ ] 👥 **Persistent accounts** — the one piece of state Phase 10 deliberately left alone.
+  `AUTH_USERS` resets on restart; a real user store would let accounts, roles and passwords
+  survive one, and is the prerequisite for sign-up and password reset above.
+- [ ] 🔗 **Agent-to-agent handoff** — a pipeline mode (e.g. Research → Summarizer) is a natural
+  extension of the existing orchestrator.
+- [ ] 🐳 **Deployment story** — Dockerfile / Compose, plus `Secure` cookies + HTTPS for a real
+  (non-localhost) deployment.
+
+---
+
+## 3. 📜 Past Work Progress
+
+> How the project got here, phase by phase.
+
+### 🗺️ Timeline flowchart
 
 ```mermaid
 flowchart LR
@@ -56,32 +173,7 @@ flowchart LR
 
 🟢 **green** = implemented, tested, and committed &nbsp;·&nbsp; 🟡 **yellow / dashed** = on disk, **not yet committed**
 
----
-
-## 🏗️ How a request flows today
-
-```mermaid
-sequenceDiagram
-    actor U as 👤 You
-    participant L as 🔐 Login
-    participant UI as 🖥️ Console
-    participant O as ⚙️ Orchestrator
-    participant A as 🤖 Agent
-    participant M as ☁️ Gemini / Claude / OpenAI
-
-    U->>L: sign in
-    L-->>U: session cookie
-    U->>UI: message + options + files
-    UI->>O: POST /api/agents/{id}/run
-    O->>A: handle(request)
-    A->>M: prompt + attachments + memory
-    M-->>A: completion
-    A-->>UI: reply · Inspector
-```
-
----
-
-## 📅 Phase-by-phase history
+### 📅 Phase-by-phase history
 
 <details>
 <summary>📦 <b>Phase 0 — Scaffolding</b> (Sep 18) · two apps that boot, nothing wired yet</summary>
@@ -357,94 +449,6 @@ verified, but the profile itself has never been started.
 **Outcome:** uploads and conversations survive a restart, on a machine with nothing installed.
 Accounts still don't.
 </details>
-
----
-
-## 🚧 In flight
-
-> On disk, **not yet committed** — the working tree ahead of `8518e71`. All of
-> [Phase 10](#-phase-by-phase-history) is uncommitted too; what follows is the frontend work that
-> was already in progress when it started.
-
-| File | What's changing |
-|---|---|
-| `Frontend/src/pages/LoginPage.tsx` | A **Sign up** affordance beside Login (desktop nav and mobile menu), both routing to the honest "no self-service sign-up yet" notice. Username field relabelled from *Email or username* and no longer hints an email keyboard. A first-run hint naming the `admin` / `admin` default and how to change it. |
-| `Frontend/src/login.css` | Styles for the above, plus a **scroll-jank fix**: the sticky nav and the blurred background blobs are promoted to their own compositor layers, so the browser composites an already-blurred layer per frame instead of redoing a 70px blur while you scroll. |
-| `README.md` | Auth documented throughout — the login section of the quick start, the `platform.auth.users` row, the three `/api/auth/*` endpoints, the `401` rows in the error table, three new troubleshooting symptoms, and a rewritten security note replacing "`/api/**` is intentionally unauthenticated". |
-
-Placeholders the login screen deliberately shows but doesn't implement yet — **Continue with
-Google**, **Sign up**, **Forgot password** — each answer with a plain notice rather than a dead
-link. They're listed on the [roadmap](#-roadmap) below.
-
----
-
-## ✅ Current Progress
-
-> Snapshot of the code on disk right now.
-
-### ⚙️ Backend
-
-| Area | Status | Detail |
-|---|---|---|
-| 🤖 Agents | ✅ Done | 5 self-describing Spring beans: coding, research, summarizer, document, general |
-| ☁️ Model providers | ✅ Done | Gemini (default), Claude, OpenAI — one env var switches all of it |
-| 📎 File attachments | ✅ Done | Any agent, shared context budget, stale ids skipped gracefully |
-| 🧠 Conversation memory | ✅ Done | Last 20 messages replayed per conversation, forgettable on request |
-| ⚠️ Error handling | ✅ Done | RFC 9457 `problem+json` everywhere — including the `401`, which never reaches a controller |
-| 🔐 Authentication | ✅ Done | Session login, BCrypt accounts from `AUTH_USERS`, every route gated except `/auth/login` |
-| 🧪 Tests | ✅ 72 / 72 passing | All offline against a stubbed model and H2 — no API key, network or Docker |
-| 🗄️ Persistent storage | 🟡 Built, uncommitted | Documents + conversation memory in an H2 file by default, Postgres on a profile; verified by restarting a live server |
-| 👥 Persistent accounts | 🔴 Not started | `AUTH_USERS` still read into an in-memory user store on boot |
-| 🧭 Auto agent routing | 🔴 Not started | Caller still names the agent; orchestrator is shaped for a router later |
-
-### 🖥️ Frontend
-
-| Area | Status | Detail |
-|---|---|---|
-| 🔐 Login gate | ✅ Done | Whole console sits behind it; no page mounts, and no API call fires, before auth resolves |
-| 🚪 Login landing page | ✅ Done | Hero, about, features, contact; sticky nav, mobile menu, own light theme independent of the console's |
-| 💬 Playground | ✅ Done | Per-agent chat lists, edit-and-regenerate, response inspector |
-| 🎨 Per-agent theming | ✅ Done | Deterministic accent color per agent, contrast-checked |
-| 📎 Attachments UI | ✅ Done | Paperclip, drag-and-drop, paste-to-attach, all agents |
-| 🧭 Offline / simulation | ✅ Done | Mirrors real behaviour once signed in; login itself always needs the backend |
-| 📦 Dependencies | ✅ Zero runtime deps | Plain React — no UI kit, no state library |
-| 🧹 Build health | ✅ Clean | `tsc -b`, `vite build`, ESLint (React 19 compiler rules) all pass |
-| 🔑 Third-party sign-in | 🟡 Placeholder | Google button and sign-up link are visible but answer with a notice |
-| 🌊 Streaming replies | 🔴 Not started | Replies arrive whole today, not token-by-token |
-
-**Legend:** ✅ done & committed &nbsp;·&nbsp; 🟡 partial / placeholder &nbsp;·&nbsp; 🔴 not started
-
----
-
-## 🚀 Roadmap
-
-### Near-term
-- [ ] 🧭 **Automatic agent routing** — let an LLM (or a cheap classifier) pick the agent from the
-  message instead of the caller naming it.
-- [ ] 🌐 **Live web search** for the Research Agent, which is knowledge-only today and says so.
-- [ ] 🌊 **Streaming responses** — token-by-token to cut perceived latency on long answers.
-
-### Mid-term
-- [x] 🗄️ **Persistent storage** — done in Phase 10, though the claim that motivated it was half
-  wrong: conversation memory really was a one-dependency swap, `DocumentStore` really was a
-  concrete class that had to be split first.
-- [ ] 🐘 **Run the `postgres` profile at least once** — it shares its schema and JDBC code with the
-  verified H2 path, but has never been started, because the machine has no Docker.
-- [ ] 🔑 **Back the login screen's promises** — self-service sign-up, Google OAuth and password
-  reset are all visible in the UI today and answered with a notice. Each one needs a real user
-  store first.
-- [ ] 📚 **Multi-file reasoning** for the Document Agent — cross-file comparison beyond today's
-  two-or-three-file case.
-- [ ] 💰 **Usage accounting** — token/cost totals per conversation, surfaced in the Inspector.
-
-### Long-term
-- [ ] 👥 **Persistent accounts** — the one piece of state Phase 10 deliberately left alone.
-  `AUTH_USERS` resets on restart; a real user store would let accounts, roles and passwords
-  survive one, and is the prerequisite for sign-up and password reset above.
-- [ ] 🔗 **Agent-to-agent handoff** — a pipeline mode (e.g. Research → Summarizer) is a natural
-  extension of the existing orchestrator.
-- [ ] 🐳 **Deployment story** — Dockerfile / Compose, plus `Secure` cookies + HTTPS for a real
-  (non-localhost) deployment.
 
 ---
 
