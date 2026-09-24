@@ -22,9 +22,6 @@ import type { Theme } from '../hooks/useTheme'
 
 interface Props {
   onLogin: (username: string, password: string) => Promise<void>
-  /** Set when the initial session check itself failed (backend unreachable) — shown as a hint,
-   * not an error, since it isn't the result of anything the person did. */
-  checkError: string | null
   /** Shared with the console via `App` — one dark/light preference for the whole app, login screen
    * included, rather than this page defaulting to light regardless of what was chosen inside. */
   theme: Theme
@@ -79,13 +76,8 @@ function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-/**
- * Gates the whole console. There is no simulation-mode bypass here on purpose: everywhere else in
- * the app, simulation mode is a setting reached from inside the console, and this is what stands
- * between "outside" and "inside" — a backend that can't be reached means nobody can sign in, same
- * as any other login screen.
- */
-export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) {
+/** Login front page. The form is UI only — `onLogin` is where authentication gets wired in. */
+export function LoginPage({ onLogin, theme, onToggleTheme }: Props) {
   const remembered = loadString(STORAGE_KEYS.rememberUser)
   const [username, setUsername] = useState(remembered ?? '')
   const [password, setPassword] = useState('')
@@ -257,17 +249,6 @@ export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) 
             {!error && notice && (
               <p className="ap-alert ap-alert-info" role="status">
                 {notice}
-              </p>
-            )}
-            {!error && !notice && checkError && (
-              <p className="ap-alert ap-alert-info" role="status">
-                Couldn&rsquo;t reach the backend to check for a saved session: {checkError}
-              </p>
-            )}
-            {!error && !notice && !checkError && (
-              <p className="ap-hint">
-                Local instance default: <code>admin</code> / <code>admin</code> (set{' '}
-                <code>AUTH_USERS</code> on the backend to change this).
               </p>
             )}
 

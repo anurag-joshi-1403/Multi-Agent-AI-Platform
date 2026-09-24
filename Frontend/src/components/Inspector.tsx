@@ -72,6 +72,12 @@ export function Inspector({ conversation, agent, message, request, onClose }: Pr
                   <dd>{formatMs(message.elapsedMs)}</dd>
                 </>
               )}
+              {typeof message.metadata?.provider === 'string' && (
+                <>
+                  <dt>provider</dt>
+                  <dd>{message.metadata.provider}</dd>
+                </>
+              )}
               {typeof message.metadata?.model === 'string' && (
                 <>
                   <dt>model</dt>

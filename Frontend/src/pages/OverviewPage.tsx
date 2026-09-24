@@ -86,10 +86,10 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
       desc: keyReady
         ? `Agents answer with ${platform?.model}.`
         : online && platform
-          ? `Set ${platform.keyEnvVar} in the backend's environment and restart it. Until then agent runs return an error.`
-          : 'Once the backend is up, export the API key for your chosen provider (Gemini, Claude or OpenAI).',
+          ? `Set at least one provider key (e.g. GROQ_API_KEY) in the backend's environment or Backend/.env and restart it. Until then agent runs return an error.`
+          : 'Once the backend is up, set a key for at least one provider (Groq, OpenRouter, Gemini, OpenAI or Claude).',
       role: 'Authorises the backend to call an LLM',
-      how: 'The backend reads one *_API_KEY environment variable, chosen by AI_PROVIDER (Gemini by default). Without it, the app still boots and lists agents — but every run returns a clear 502 instead of a reply.',
+      how: 'The backend tries every provider that has a *_API_KEY set, in AI_PROVIDERS order, and falls back to the next one when a call fails. With no key at all, the app still boots and lists agents — but every run returns a clear 502 instead of a reply.',
       link: href({ page: 'settings' }),
       linkText: 'How',
     },

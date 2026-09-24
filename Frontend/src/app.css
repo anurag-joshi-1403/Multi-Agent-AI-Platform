@@ -232,42 +232,6 @@
   transform: rotate(24deg);
 }
 
-.account-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 2px;
-}
-.account-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-size: 12px;
-  font-weight: 700;
-}
-.account-name {
-  font-size: 13px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sign-out-btn {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-.sign-out-btn:hover:not(:disabled) {
-  color: var(--danger);
-  background: var(--danger-soft);
-}
-
 /* --- collapsed rail: icons only, labels become tooltips --- */
 .sidebar.collapsed {
   padding-left: 10px;
@@ -282,8 +246,7 @@
 }
 .sidebar.collapsed .brand-text,
 .sidebar.collapsed .nav-link span,
-.sidebar.collapsed .theme-toggle span,
-.sidebar.collapsed .account-name {
+.sidebar.collapsed .theme-toggle span {
   display: none;
 }
 .sidebar.collapsed .nav-link {
@@ -297,10 +260,6 @@
   width: 36px;
   height: 36px;
   padding: 0;
-}
-.sidebar.collapsed .account-row {
-  flex-direction: column;
-  gap: 6px;
 }
 .badge-compact {
   padding: 6px;
@@ -492,19 +451,16 @@
   font-size: 13px;
   font-weight: 500;
 }
+.provider-chain {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+}
+
 .field .hint {
   font-size: 12px;
   color: var(--text-muted);
-}
-
-/* Shown for the split second before the session check resolves; the login page has its own
-   light-only stylesheet (login.css), so this is the one auth rule that stays theme-aware. */
-.auth-splash {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  background: var(--bg);
 }
 
 .switch {

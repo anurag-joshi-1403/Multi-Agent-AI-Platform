@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { useAgents } from './hooks/useAgents'
-import { useAuth } from './hooks/useAuth'
 import { useAutoCollapseOnRoute } from './hooks/useAutoCollapseOnRoute'
 import { useBackendStatus } from './hooks/useBackendStatus'
 import { useConversations } from './hooks/useConversations'
@@ -13,38 +12,33 @@ import { LoginPage } from './pages/LoginPage'
 import { OverviewPage } from './pages/OverviewPage'
 import { PlaygroundPage } from './pages/PlaygroundPage'
 import { SettingsPage } from './pages/SettingsPage'
-import type { AuthApi } from './hooks/useAuth'
 import type { Theme } from './hooks/useTheme'
 import './app.css'
 
 /**
- * Gates the console behind a real login. Nothing below this — not even the initial `/api/agents`
- * probe — runs until `auth.status === 'authenticated'`, so `Console` mounts (and its hooks start
- * firing requests) only once there is a session to send with them.
+ * Shows the login front page until it is submitted, then the console. There is no authentication
+ * behind it yet — `enter` is the placeholder where a real sign-in call belongs.
  */
 function App() {
-  const auth = useAuth()
   // Called once here rather than inside Console, so the login screen and the console share the
   // same theme state (and the same localStorage key) instead of two independent hook instances
   // that would only happen to agree at mount.
   const [theme, toggleTheme] = useTheme()
+  const [entered, setEntered] = useState(false)
 
-  if (auth.status === 'checking') {
-    return (
-      <div className="auth-splash" aria-busy="true">
-        <span className="spinner" aria-hidden />
-      </div>
-    )
+  const enter = useCallback(async () => {
+    // TODO: authenticate here (LoginPage passes username and password).
+    setEntered(true)
+  }, [])
+
+  if (!entered) {
+    return <LoginPage onLogin={enter} theme={theme} onToggleTheme={toggleTheme} />
   }
 
-  if (auth.status === 'anonymous') {
-    return <LoginPage onLogin={auth.login} checkError={auth.checkError} theme={theme} onToggleTheme={toggleTheme} />
-  }
-
-  return <Console auth={auth} theme={theme} toggleTheme={toggleTheme} />
+  return <Console theme={theme} toggleTheme={toggleTheme} />
 }
 
-function Console({ auth, theme, toggleTheme }: { auth: AuthApi; theme: Theme; toggleTheme: () => void }) {
+function Console({ theme, toggleTheme }: { theme: Theme; toggleTheme: () => void }) {
   const [route, navigate] = useHashRoute()
   const [sidebarCollapsed, toggleSidebar] = useAutoCollapseOnRoute(route)
   const { agents, loading, reload } = useAgents()
@@ -116,8 +110,6 @@ function Console({ auth, theme, toggleTheme }: { auth: AuthApi; theme: Theme; to
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
         onToggleTheme={toggleTheme}
-        user={auth.user}
-        onSignOut={auth.logout}
       />
       <main className="main">
         {status === 'offline' && (
@@ -137,8 +129,8 @@ function Console({ auth, theme, toggleTheme }: { auth: AuthApi; theme: Theme; to
           <div className="banner banner-info" role="status">
             <strong>No API key.</strong>
             <span>
-              Backend is online ({platform.providerName} · <code>{platform.model}</code>) but{' '}
-              <code>{platform.keyEnvVar}</code> is not set, so agent runs will fail. Set it and restart the backend.
+              Backend is online but no model provider has a key, so agent runs will fail. Set one (e.g.{' '}
+              <code>GROQ_API_KEY</code>) in the backend's environment or <code>Backend/.env</code> and restart it.
             </span>
             <span className="spacer" />
             <a className="btn btn-sm" href="#/settings">

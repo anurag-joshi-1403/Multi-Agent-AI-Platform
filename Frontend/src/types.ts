@@ -46,15 +46,29 @@ export interface DocumentSummary {
 }
 
 /** Mirrors `PlatformStatus` on the backend (`GET /api/platform`). */
-export interface PlatformStatus {
+/** One entry of the backend's provider failover chain. */
+export interface ProviderStatus {
   provider: string
   providerName: string
   model: string
+  /** False when its key is not set — the backend skips it. */
+  active: boolean
+  keyEnvVar: string
+}
+
+export interface PlatformStatus {
+  /** The provider tried first (the first one with a key). */
+  provider: string
+  providerName: string
+  model: string
+  /** False only when no provider in the chain has a key. */
   apiKeyConfigured: boolean
   keyEnvVar: string
   agents: number
   memoryMaxMessages: number
   documents: { stored: number; maxStored: number; maxContextChars: number }
+  /** Failover order, including providers skipped for lack of a key. Absent from older backends. */
+  providers?: ProviderStatus[]
 }
 
 /** A file uploaded to the backend and attached to a message. */

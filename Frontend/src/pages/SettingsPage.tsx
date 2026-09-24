@@ -116,10 +116,33 @@ export function SettingsPage({
           {platform ? (
             <>
               <dl className="kv">
-                <dt>provider</dt>
-                <dd>{platform.providerName}</dd>
-                <dt>model</dt>
-                <dd>{platform.model}</dd>
+                {platform.providers && platform.providers.length > 0 ? (
+                  <>
+                    <dt>failover order</dt>
+                    <dd>
+                      <ol className="provider-chain">
+                        {platform.providers.map((p) => (
+                          <li key={p.provider} className={p.active ? '' : 'muted'}>
+                            {p.providerName} · <code>{p.model}</code>
+                            {!p.active && (
+                              <>
+                                {' '}
+                                — skipped, <code>{p.keyEnvVar}</code> not set
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ol>
+                    </dd>
+                  </>
+                ) : (
+                  <>
+                    <dt>provider</dt>
+                    <dd>{platform.providerName}</dd>
+                    <dt>model</dt>
+                    <dd>{platform.model}</dd>
+                  </>
+                )}
                 <dt>agents</dt>
                 <dd>{platform.agents}</dd>
                 <dt>memory</dt>
@@ -131,10 +154,10 @@ export function SettingsPage({
                 </dd>
               </dl>
               <p className="small muted">
-                The provider is chosen on the backend with <code>AI_PROVIDER</code> (<code>google-genai</code>,{' '}
-                <code>anthropic</code> or <code>openai</code>) and its key with{' '}
-                <code>{platform.keyEnvVar === '—' ? 'GEMINI_API_KEY' : platform.keyEnvVar}</code>. Keys are never
-                entered here or stored in the browser — set them in the backend's environment and restart it.
+                Each run goes to the first provider above that has a key; if it fails, the next one is tried.
+                The order is set on the backend with <code>AI_PROVIDERS</code>. Keys are never entered here or
+                stored in the browser — set them in the backend's environment or <code>Backend/.env</code> and
+                restart it.
               </p>
             </>
           ) : (
