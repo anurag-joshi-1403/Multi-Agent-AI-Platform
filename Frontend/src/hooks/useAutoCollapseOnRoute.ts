@@ -36,5 +36,18 @@ export function useAutoCollapseOnRoute(route: Route): [boolean, () => void] {
     }
   }, [onPlayground, toggleManual])
 
+  // Ctrl/⌘+B must call this route-aware toggle. Bound to useSidebar's manual toggle instead, it did
+  // nothing visible on Playground and silently flipped the baseline every other page uses.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        toggle()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toggle])
+
   return [collapsed, toggle]
 }

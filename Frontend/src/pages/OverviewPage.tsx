@@ -309,12 +309,13 @@ export function OverviewPage({ agents, agentsLoading, conversations, backend, pl
               ))}
             </div>
           )}
-          {backend !== 'online' ? (
+          {backend === 'offline' || backend === 'simulated' ? (
             <p className="small muted" style={{ marginTop: 12 }}>
               <IconSettings width={13} height={13} style={{ verticalAlign: '-2px' }} /> These are simulated agents
-              because the backend is not connected.
+              {backend === 'simulated' ? ' — simulation mode is on in Settings.' : ' because the backend is not connected.'}
             </p>
           ) : (
+            backend === 'online' &&
             platform && (
               <p className="small muted" style={{ marginTop: 12 }}>
                 <IconKey width={13} height={13} style={{ verticalAlign: '-2px' }} /> Powered by {platform.providerName}{' '}

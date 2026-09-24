@@ -54,7 +54,7 @@ const FEATURES = [
   {
     Icon: IconKey,
     title: 'Bring your own model',
-    text: 'Google Gemini by default; switch to Anthropic Claude or OpenAI with a single environment variable.',
+    text: 'Groq, OpenRouter, Gemini, OpenAI or Claude — every provider with a key is tried in order, failing over to the next.',
   },
 ]
 
@@ -271,11 +271,16 @@ export function LoginPage({ onLogin, theme, onToggleTheme }: Props) {
             </label>
 
             <label className="ap-field">
-              <span className="ap-label">Password</span>
+              <span className="ap-label" id="ap-password-label">
+                Password
+              </span>
               <span className="ap-input-wrap">
                 <IconLock className="ap-input-icon" />
+                {/* Named by the label text alone: the show/hide button also sits inside this <label>,
+                    and would otherwise be read as part of the field's name ("Password Show password"). */}
                 <input
                   className="ap-input"
+                  aria-labelledby="ap-password-label"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   placeholder="Enter your password"
@@ -342,7 +347,7 @@ export function LoginPage({ onLogin, theme, onToggleTheme }: Props) {
           </p>
           <div className="ap-stats" aria-label="Platform at a glance">
             <span className="ap-stat"><b>5</b> agents</span>
-            <span className="ap-stat"><b>3</b> model providers</span>
+            <span className="ap-stat"><b>5</b> model providers</span>
             <span className="ap-stat"><b>62</b> automated tests</span>
           </div>
         </section>

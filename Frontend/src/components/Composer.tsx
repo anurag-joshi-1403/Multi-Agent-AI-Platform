@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ClipboardEvent, KeyboardEvent } from 'react'
 import type { AttachmentsApi } from '../hooks/useAttachments'
+import { isRecord } from '../lib/util'
 import type { Attachment } from '../types'
 import { IconFile, IconPaperclip, IconSend, IconX } from './Icons'
 
@@ -39,21 +40,25 @@ export function Composer({ disabled, busy, placeholder, attachments, onSend }: P
     }
     try {
       const parsed: unknown = JSON.parse(advancedJson)
-      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      if (!isRecord(parsed)) {
         setError('Advanced attributes must be a JSON object, e.g. {"tone": "formal"}')
         return null
       }
       setError(null)
-      return parsed as Record<string, unknown>
+      return parsed
     } catch (e) {
       setError(e instanceof Error ? `Advanced attributes: ${e.message}` : 'Invalid JSON')
       return null
     }
   }
 
+  // A file still uploading has no id yet, so a message sent now would silently go without it — and
+  // the finished upload would then attach itself to the *next* message instead.
+  const uploading = attachments.uploading > 0
+
   function submit() {
     const message = text.trim()
-    if (!message || disabled || busy) return
+    if (!message || disabled || busy || uploading) return
     const extra = collectAttributes()
     if (extra === null) return
     onSend(message, extra, attachments.pending)
@@ -80,8 +85,9 @@ export function Composer({ disabled, busy, placeholder, attachments, onSend }: P
     if (fileInput.current) fileInput.current.value = ''
   }
 
-  const ready = !!text.trim() && !disabled && !busy
+  const ready = !!text.trim() && !disabled && !busy && !uploading
   const advancedActive = showAdvanced && advancedJson.trim() !== ''
+  const sendLabel = busy ? 'Waiting for reply' : uploading ? 'Wait for the upload to finish' : 'Send message'
 
   return (
     <div className="composer">
@@ -140,7 +146,8 @@ export function Composer({ disabled, busy, placeholder, attachments, onSend }: P
             className={`btn btn-primary btn-icon send-btn ${ready ? 'ready' : ''} ${busy ? 'busy' : ''}`}
             onClick={submit}
             disabled={!ready}
-            aria-label={busy ? 'Waiting for reply' : 'Send message'}
+            aria-label={sendLabel}
+            title={uploading ? sendLabel : undefined}
           >
             {busy ? <span className="spinner" aria-hidden /> : <IconSend />}
           </button>

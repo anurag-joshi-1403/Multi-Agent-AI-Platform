@@ -26,6 +26,11 @@ export function truncate(text: string, max = 48): string {
   return clean.length > max ? clean.slice(0, max - 1) + '…' : clean
 }
 
+/** Narrows parsed JSON (API bodies, localStorage) to a plain object before its fields are read. */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 export function titleCase(id: string): string {
   return id
     .split(/[-_\s]+/)

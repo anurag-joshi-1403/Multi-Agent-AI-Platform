@@ -447,7 +447,8 @@
   flex-direction: column;
   gap: 6px;
 }
-.field label {
+.field label,
+.field .field-label {
   font-size: 13px;
   font-weight: 500;
 }
@@ -461,6 +462,9 @@
 .field .hint {
   font-size: 12px;
   color: var(--text-muted);
+}
+.field .hint.field-error {
+  color: var(--danger);
 }
 
 .switch {
@@ -556,6 +560,37 @@
 .empty-compact > svg {
   width: 30px;
   height: 30px;
+}
+
+/* ErrorBoundary fallback */
+.app-crash {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--bg);
+}
+.app-crash h1 {
+  color: var(--text);
+  font-size: 20px;
+}
+.app-crash .row {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.app-crash-details {
+  width: 100%;
+  max-width: 460px;
+  text-align: left;
+  font-size: 12px;
+}
+.app-crash-details summary {
+  cursor: pointer;
+  text-align: center;
+}
+.app-crash-details pre {
+  margin-top: 8px;
+  white-space: pre-wrap;
 }
 
 .callout {
@@ -1086,6 +1121,8 @@
   grid-template-columns: 260px 1fr var(--inspector-w);
   height: 100%;
   min-height: 0;
+  /* containing block for the narrow-screen inspector overlay */
+  position: relative;
   transition: grid-template-columns 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .playground.no-inspector {
@@ -1098,6 +1135,9 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* Without this the grid track grows to the list's min-content width — on phones, the full
+     unwrapped width of the longest conversation title — pushing the send button off-screen. */
+  min-width: 0;
 }
 .conv-list-head {
   padding: 14px 14px 10px;
@@ -1182,14 +1222,28 @@
   opacity: 0;
   margin-left: auto;
   color: var(--text-faint);
+  /* a 28px hit area around the 15px icon (WCAG 2.5.8 asks for at least 24px) */
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 6px;
   transition: opacity 0.15s, color 0.15s, transform 0.15s;
 }
 .conv-item .conv-del:hover {
   transform: scale(1.15);
 }
 .conv-item:hover .conv-del,
-.conv-item.active .conv-del {
+.conv-item.active .conv-del,
+.conv-item .conv-del:focus-visible {
   opacity: 1;
+}
+/* Touch screens have no hover to reveal it, but the invisible button would still take taps. */
+@media (hover: none) {
+  .conv-item .conv-del {
+    opacity: 1;
+  }
 }
 .conv-item .conv-del:hover {
   color: var(--danger);
@@ -1204,6 +1258,9 @@
     radial-gradient(900px 420px at 50% -10%, var(--accent-soft), transparent 70%),
     var(--bg);
   position: relative;
+  /* The header adapts to this column's width (see the @container rules at the end of the
+     Responsive section), which depends on the sidebar and the inspector as well as the viewport. */
+  container: chat / inline-size;
 }
 .chat-head {
   display: flex;
@@ -1221,6 +1278,9 @@
 }
 .chat-head-select {
   gap: 8px;
+}
+.chat-head-select > span {
+  white-space: nowrap;
 }
 .chat-head .select {
   width: auto;
@@ -1485,6 +1545,10 @@
   color: var(--ok);
   border-color: var(--ok-soft);
   background: var(--ok-soft);
+}
+.msg-action.active {
+  color: var(--accent-strong);
+  border-color: var(--accent-ring);
 }
 .msg.user .msg-action {
   background: rgba(0, 0, 0, 0.25);
@@ -1840,6 +1904,16 @@
   min-height: 0;
   animation: panel-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
+/* ≤1180px (see INSPECTOR_OVERLAY_QUERY): no room for a third column, so the panel floats over the chat. */
+.inspector.inspector-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  width: min(var(--inspector-w), 100%);
+  box-shadow: var(--shadow);
+}
 .inspector-section {
   animation: fade-up 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
@@ -1932,11 +2006,10 @@
    Responsive
    ============================================================ */
 @media (max-width: 1180px) {
-  .playground {
+  /* `.no-inspector` is listed so its higher specificity can't bring back the desktop columns. */
+  .playground,
+  .playground.no-inspector {
     grid-template-columns: 240px 1fr;
-  }
-  .inspector {
-    display: none;
   }
 }
 
@@ -1972,6 +2045,21 @@
   .theme-toggle span {
     display: none;
   }
+  /* The collapsed rail's `padding: 10px 0` would otherwise shrink these to bare 18px icons here. */
+  .sidebar.collapsed .nav-link {
+    padding: 9px 10px;
+  }
+  /* Dot only: the full status text pushed the theme toggle out of the bar on phones. It stays
+     available as the badge's aria-label and tooltip. */
+  .sidebar .badge-label {
+    display: none;
+  }
+  .sidebar .badge {
+    padding: 6px;
+    width: 22px;
+    height: 22px;
+    justify-content: center;
+  }
   .sidebar-foot,
   .sidebar.collapsed .sidebar-foot {
     margin-top: 0;
@@ -2005,7 +2093,8 @@
   .pipeline-step::after {
     display: none;
   }
-  .playground {
+  .playground,
+  .playground.no-inspector {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
   }
@@ -2035,6 +2124,38 @@
   .composer {
     padding-left: 12px;
     padding-right: 12px;
+  }
+}
+
+/* Chat header, sized by the chat column rather than the viewport. Below ~980px the agent picker, its
+   options and both buttons no longer fit on one row (they used to overlap the picker), so the options
+   take a row of their own; below ~700px the header also drops the extras the phone layout drops. */
+@container chat (max-width: 980px) {
+  .chat-head {
+    flex-wrap: wrap;
+  }
+  .chat-head .agent-options {
+    order: 3;
+    width: 100%;
+  }
+}
+@container chat (max-width: 700px) {
+  .chat-head-desc,
+  .new-chat-btn span,
+  .inspector-toggle span {
+    display: none;
+  }
+}
+/* Phones: the "Talking to" label plus a 180px select don't fit beside the two icon buttons (the
+   buttons sat on top of the select). The visible label goes — the select keeps its aria-label —
+   and the select shrinks to the space left. */
+@container chat (max-width: 440px) {
+  .chat-head-select > span {
+    display: none;
+  }
+  .chat-head .chat-head-select .select {
+    min-width: 0;
+    flex: 1 1 auto;
   }
 }
 
@@ -2109,6 +2230,13 @@
 }
 .attach-chip button {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* bigger hit area than the 12px icon, pulled back by the negative margin so the chip keeps its size */
+  min-width: 24px;
+  min-height: 24px;
+  margin: -6px -6px -6px 0;
+  border-radius: 999px;
   color: var(--text-faint);
   transition: color 0.15s, transform 0.15s;
 }

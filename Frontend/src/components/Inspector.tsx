@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { IconInfo, IconPanelRight } from './Icons'
 import { formatMs } from '../lib/util'
 import type { AgentInfo, ChatMessage, Conversation } from '../types'
@@ -16,6 +16,10 @@ interface Props {
   /** The user message that triggered `message`, if known. */
   request?: ChatMessage
   onClose?: () => void
+  /** Lets the playground move focus to "Hide" when the panel opens as an overlay on narrow screens. */
+  closeButtonRef?: Ref<HTMLButtonElement>
+  /** Narrow screens: the panel floats over the chat instead of taking a grid column. */
+  overlay?: boolean
 }
 
 function pretty(value: unknown): string {
@@ -36,18 +40,24 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
   )
 }
 
-export function Inspector({ conversation, agent, message, request, onClose }: Props) {
+export function Inspector({ conversation, agent, message, request, onClose, closeButtonRef, overlay }: Props) {
   const simulated = message?.metadata?.simulated === true
 
   return (
-    <aside className="inspector" aria-label="Response inspector">
+    <aside className={`inspector ${overlay ? 'inspector-overlay' : ''}`} aria-label="Response inspector">
       <div className="inspector-head">
         <span className="row">
           <IconPanelRight width={15} height={15} />
           <strong>Inspector</strong>
         </span>
         {onClose && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Hide inspector">
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={onClose}
+            aria-label="Hide inspector"
+          >
             Hide
           </button>
         )}

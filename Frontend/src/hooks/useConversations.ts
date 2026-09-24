@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadJson, saveJson, STORAGE_KEYS } from '../lib/storage'
-import { truncate, uid } from '../lib/util'
-import type { ChatMessage, Conversation } from '../types'
+import { isRecord, truncate, uid } from '../lib/util'
+import type { Attachment, ChatMessage, Conversation, MessageRole } from '../types'
 
 export interface ConversationsApi {
   conversations: Conversation[]
@@ -20,10 +20,59 @@ function sortByUpdated(list: Conversation[]): Conversation[] {
   return [...list].sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
+// --- validation of what localStorage hands back -----------------------------
+// Stored data outlives the code that wrote it and can be edited by hand. Rendering assumes these
+// shapes (`c.messages.filter`, `m.attachments.map`, …), so it is checked at load time rather than
+// crashing the console on every start with no way to reach Settings > Delete all. Only what is
+// actually broken is dropped: a bad optional field loses that field, not the message around it.
+const ROLES: ReadonlySet<string> = new Set<MessageRole>(['user', 'agent', 'error'])
+const isString = (v: unknown): v is string => typeof v === 'string'
+const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+const isRole = (v: unknown): v is MessageRole => isString(v) && ROLES.has(v)
+const isAttachment = (v: unknown): v is Attachment => isRecord(v) && isString(v.id) && isString(v.name)
+
+function toMessage(v: unknown): ChatMessage | null {
+  if (!isRecord(v)) return null
+  const { id, role, content, createdAt, agentId, metadata, attributes, elapsedMs, editedAt, attachments } = v
+  if (!isString(id) || !isRole(role) || !isString(content) || !isNumber(createdAt)) return null
+  const files = Array.isArray(attachments) ? attachments.filter(isAttachment) : []
+  return {
+    id,
+    role,
+    content,
+    createdAt,
+    agentId: isString(agentId) ? agentId : undefined,
+    metadata: isRecord(metadata) ? metadata : undefined,
+    attributes: isRecord(attributes) ? attributes : undefined,
+    elapsedMs: isNumber(elapsedMs) ? elapsedMs : undefined,
+    editedAt: isNumber(editedAt) ? editedAt : undefined,
+    attachments: files.length ? files : undefined,
+  }
+}
+
+function toConversation(v: unknown): Conversation | null {
+  if (!isRecord(v)) return null
+  const { id, title, agentId, messages, createdAt, updatedAt } = v
+  if (!isString(id) || !isString(agentId) || !Array.isArray(messages)) return null
+  const created = isNumber(createdAt) ? createdAt : 0
+  return {
+    id,
+    title: isString(title) && title.trim() ? title : 'Untitled conversation',
+    agentId,
+    messages: messages.map(toMessage).filter((m): m is ChatMessage => m !== null),
+    createdAt: created,
+    updatedAt: isNumber(updatedAt) ? updatedAt : created,
+  }
+}
+
+function loadConversations(): Conversation[] {
+  const raw = loadJson(STORAGE_KEYS.conversations)
+  if (!Array.isArray(raw)) return []
+  return raw.map(toConversation).filter((c): c is Conversation => c !== null)
+}
+
 export function useConversations(): ConversationsApi {
-  const [conversations, setConversations] = useState<Conversation[]>(() =>
-    sortByUpdated(loadJson<Conversation[]>(STORAGE_KEYS.conversations, [])),
-  )
+  const [conversations, setConversations] = useState<Conversation[]>(() => sortByUpdated(loadConversations()))
 
   useEffect(() => {
     saveJson(STORAGE_KEYS.conversations, conversations)

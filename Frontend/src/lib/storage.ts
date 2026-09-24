@@ -1,11 +1,15 @@
 /** localStorage helpers that never throw (private mode, blocked storage, quota). */
 
-export function loadJson<T>(key: string, fallback: T): T {
+/**
+ * Parsed JSON for `key`, or `undefined` when it is missing or unparsable. Deliberately `unknown`:
+ * stored data can be stale or hand-edited, so callers validate its shape before using it.
+ */
+export function loadJson(key: string): unknown {
   try {
     const raw = localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as T) : fallback
+    return raw ? JSON.parse(raw) : undefined
   } catch {
-    return fallback
+    return undefined
   }
 }
 

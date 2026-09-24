@@ -10,6 +10,7 @@ import { MessageBubble } from '../components/MessageBubble'
 import { forgetConversation } from '../api/client'
 import { useAttachments } from '../hooks/useAttachments'
 import type { ConversationsApi } from '../hooks/useConversations'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { agentThemeStyle } from '../lib/agentColor'
 import { buildAttributes } from '../lib/attributes'
 import type { ParameterValues } from '../lib/attributes'
@@ -58,6 +59,12 @@ function withAttachments(history: ChatMessage[], added: Attachment[]): { attachm
   return ids.length ? { attachments: ids } : {}
 }
 
+/**
+ * Must match the `max-width: 1180px` block in app.css: below it there is no room for a third grid
+ * column, so the inspector is shown as an overlay instead of being hidden outright.
+ */
+const INSPECTOR_OVERLAY_QUERY = '(max-width: 1180px)'
+
 const HOW_TO = [
   { title: 'Choose an agent', text: 'from the dropdown above — each one is a specialist.' },
   { title: 'Send a message.', text: 'Try one of the prompts below, or write your own.' },
@@ -84,18 +91,53 @@ export function PlaygroundPage({
   // Selection is scoped to a conversation so switching threads naturally clears it.
   const [selected, setSelected] = useState<{ conversationId: string; messageId: string } | undefined>()
   const [showInspector, setShowInspector] = useState(() => loadString(STORAGE_KEYS.inspector) !== 'hidden')
+  // On narrow screens the panel is an overlay over the chat, so it starts closed each visit rather
+  // than following the remembered wide-screen preference (which would cover the thread on arrival).
+  const compactInspector = useMediaQuery(INSPECTOR_OVERLAY_QUERY)
+  const [overlayOpen, setOverlayOpen] = useState(false)
+  const inspectorOpen = compactInspector ? overlayOpen : showInspector
+  const inspectorToggleRef = useRef<HTMLButtonElement>(null)
+  const inspectorCloseRef = useRef<HTMLButtonElement>(null)
   // Option values typed into the header controls, remembered per agent while the page is open.
   const [paramValues, setParamValues] = useState<Record<string, ParameterValues>>({})
   const attachments = useAttachments()
   const [dragging, setDragging] = useState(false)
   const threadRef = useRef<HTMLDivElement>(null)
 
-  function toggleInspector() {
-    setShowInspector((v) => {
-      saveString(STORAGE_KEYS.inspector, v ? 'hidden' : 'shown')
-      return !v
-    })
+  function setInspectorOpen(open: boolean) {
+    if (compactInspector) {
+      setOverlayOpen(open)
+      return
+    }
+    saveString(STORAGE_KEYS.inspector, open ? 'shown' : 'hidden')
+    setShowInspector(open)
   }
+
+  function toggleInspector() {
+    setInspectorOpen(!inspectorOpen)
+  }
+
+  /** Closing the overlay from inside it hands focus back to the toggle instead of dropping it on <body>. */
+  function closeInspector() {
+    const focusWasInside = document.activeElement?.closest('.inspector') != null
+    setInspectorOpen(false)
+    if (compactInspector && focusWasInside) inspectorToggleRef.current?.focus()
+  }
+
+  // Opening the overlay moves focus into it; Escape closes it (unless something inside, like the
+  // message editor, already handled the key).
+  useEffect(() => {
+    if (!compactInspector || !overlayOpen) return
+    inspectorCloseRef.current?.focus()
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const focusWasInside = document.activeElement?.closest('.inspector') != null
+      setOverlayOpen(false)
+      if (focusWasInside) inspectorToggleRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [compactInspector, overlayOpen])
 
   // Active conversation's agent wins; otherwise the draft pick; otherwise the first registered agent.
   const agentId = active?.agentId ?? draftAgentId ?? agents[0]?.id ?? ''
@@ -156,7 +198,8 @@ export function PlaygroundPage({
   }
 
   async function send(text: string, extra: Record<string, unknown>, added: Attachment[]) {
-    if (!agentId) return
+    // Files still uploading have no id yet; sending now would leave them out of this turn.
+    if (!agentId || attachments.uploading > 0) return
     const conv = active ?? startConversation()
     const attributes = {
       ...buildAttributes(parameters, values),
@@ -169,7 +212,8 @@ export function PlaygroundPage({
 
   /** Edit a previously-sent prompt: drop the stale reply after it, then resend with the new text. */
   async function editMessage(messageId: string, text: string) {
-    if (!active) return
+    // A reply still in flight would land after the edited turn (and clear the pending flag early).
+    if (!active || pending.has(active.id)) return
     const idx = active.messages.findIndex((m) => m.id === messageId)
     if (idx < 0) return
     const original = active.messages[idx]
@@ -214,12 +258,21 @@ export function PlaygroundPage({
     if (conversationId) setSelected({ conversationId, messageId })
   }
 
+  /** The explicit "inspect" action: select the reply and make sure the panel is showing it. */
+  function inspectMessage(messageId: string) {
+    selectMessage(messageId)
+    setInspectorOpen(true)
+  }
+
   function deleteConversation(id: string) {
     const doomed = conversations.conversations.find((c) => c.id === id)
+    if (!doomed) return
+    // Same safeguard as Settings > Delete all: the transcript only lives in this browser.
+    if (!window.confirm(`Delete "${doomed.title}"? This cannot be undone.`)) return
     conversations.remove(id)
     void forgetConversation(id)
     if (id === conversationId) {
-      if (doomed) onDraftAgentChange(doomed.agentId)
+      onDraftAgentChange(doomed.agentId)
       onOpenConversation(undefined)
     }
   }
@@ -228,6 +281,7 @@ export function PlaygroundPage({
 
   return (
     <div className={`playground ${showInspector ? '' : 'no-inspector'}`}>
+      <h1 className="sr-only">Playground</h1>
       <ConversationList
         conversations={conversations.conversations}
         agent={agent}
@@ -292,11 +346,12 @@ export function PlaygroundPage({
             <IconPlus width={15} height={15} /> <span>New chat</span>
           </button>
           <button
+            ref={inspectorToggleRef}
             type="button"
-            className={`btn btn-ghost btn-sm inspector-toggle ${showInspector ? 'active' : ''}`}
+            className={`btn btn-ghost btn-sm inspector-toggle ${inspectorOpen ? 'active' : ''}`}
             onClick={toggleInspector}
-            aria-pressed={showInspector}
-            title={showInspector ? 'Hide the response inspector' : 'Show the response inspector'}
+            aria-pressed={inspectorOpen}
+            title={inspectorOpen ? 'Hide the response inspector' : 'Show the response inspector'}
           >
             <IconPanelRight /> <span>Inspector</span>
           </button>
@@ -336,6 +391,7 @@ export function PlaygroundPage({
                         className="btn btn-sm suggestion fade-up"
                         style={{ '--i': 7 + i } as CSSProperties}
                         onClick={() => void send(s, {}, attachments.pending)}
+                        disabled={attachments.uploading > 0}
                       >
                         {s}
                       </button>
@@ -351,7 +407,8 @@ export function PlaygroundPage({
                   agent={agents.find((a) => a.id === m.agentId)}
                   selected={selectedMessage?.id === m.id}
                   onSelect={selectMessage}
-                  onEdit={editMessage}
+                  onInspect={inspectMessage}
+                  onEdit={isPending ? undefined : editMessage}
                 />
               ))
             )}
@@ -391,14 +448,16 @@ export function PlaygroundPage({
         />
       </section>
 
-      {showInspector && (
+      {inspectorOpen && (
         <Inspector
           key={selectedMessage?.id ?? 'none'}
           conversation={active}
           agent={agent}
           message={selectedMessage}
           request={requestMessage}
-          onClose={toggleInspector}
+          onClose={closeInspector}
+          closeButtonRef={inspectorCloseRef}
+          overlay={compactInspector}
         />
       )}
     </div>

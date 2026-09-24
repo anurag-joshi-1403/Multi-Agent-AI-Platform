@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { apiBase, simulationForced } from '../api/client'
+import { useEffect, useState } from 'react'
+import { defaultApiBase, isValidApiBase, simulationForced } from '../api/client'
 import { BackendStatusBadge } from '../components/BackendStatusBadge'
 import { IconKey, IconRefresh, IconTrash } from '../components/Icons'
 import { PageHeader } from '../components/PageHeader'
@@ -25,18 +25,33 @@ export function SettingsPage({
   platform,
 }: Props) {
   const [base, setBase] = useState(() => loadString(STORAGE_KEYS.apiBase) ?? '')
+  const [baseError, setBaseError] = useState<string | null>(null)
   const [simulate, setSimulate] = useState(simulationForced)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const fallbackBase = defaultApiBase()
+
+  // Hide the "Applied" note again after a moment; the cleanup also covers leaving the page early
+  // and a second Apply restarting the timer.
+  useEffect(() => {
+    if (!saved) return
+    const t = setTimeout(() => setSaved(false), 1800)
+    return () => clearTimeout(t)
+  }, [saved])
 
   async function applyConnection() {
+    if (!isValidApiBase(base)) {
+      setBaseError('Use a path such as /api or a full http(s):// URL.')
+      return
+    }
+    setBaseError(null)
     setSaving(true)
+    setSaved(false)
     saveString(STORAGE_KEYS.apiBase, base.trim() || null)
     saveString(STORAGE_KEYS.simulate, simulate ? 'true' : null)
     await onReloadAgents()
     setSaving(false)
     setSaved(true)
-    setTimeout(() => setSaved(false), 1800)
   }
 
   function clearData() {
@@ -65,15 +80,31 @@ export function SettingsPage({
             <label htmlFor="api-base">API base URL</label>
             <input
               id="api-base"
-              className="input mono"
-              placeholder={apiBase()}
+              className={`input mono ${baseError ? 'input-error' : ''}`}
+              placeholder={fallbackBase}
               value={base}
-              onChange={(e) => setBase(e.target.value)}
+              onChange={(e) => {
+                setBase(e.target.value)
+                if (baseError) setBaseError(null)
+              }}
               spellCheck={false}
+              aria-invalid={baseError ? true : undefined}
+              aria-describedby={baseError ? 'api-base-error api-base-hint' : 'api-base-hint'}
             />
-            <span className="hint">
-              Leave empty to use <code>{import.meta.env.VITE_API_BASE ?? '/api'}</code> (proxied to{' '}
-              <code>localhost:8080</code> by the Vite dev server).
+            {baseError && (
+              <span id="api-base-error" className="hint field-error" role="alert">
+                {baseError}
+              </span>
+            )}
+            <span id="api-base-hint" className="hint">
+              Leave empty to use <code>{fallbackBase}</code>
+              {fallbackBase.startsWith('/') && (
+                <>
+                  {' '}
+                  (proxied to <code>localhost:8080</code> by the Vite dev server)
+                </>
+              )}
+              .
             </span>
           </div>
 
@@ -186,7 +217,7 @@ export function SettingsPage({
           </div>
           <div className="settings-row">
             <div className="field">
-              <label>Conversations</label>
+              <span className="field-label">Conversations</span>
               <span className="hint">
                 {conversationCount} conversation{conversationCount === 1 ? '' : 's'} saved in this browser's storage.
               </span>

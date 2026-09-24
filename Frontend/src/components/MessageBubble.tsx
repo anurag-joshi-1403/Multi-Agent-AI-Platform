@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { AgentAvatar } from './AgentAvatar'
-import { IconCheck, IconCopy, IconEdit, IconFile, IconX } from './Icons'
+import { IconCheck, IconCopy, IconEdit, IconFile, IconPanelRight, IconX } from './Icons'
 import { Markdown } from './Markdown'
 import { useCopy } from '../hooks/useCopy'
 import { formatMs } from '../lib/util'
@@ -12,11 +12,16 @@ interface Props {
   agent?: AgentInfo
   selected?: boolean
   onSelect?: (id: string) => void
-  /** Editing a prompt truncates the reply that followed it and resends — see `PlaygroundPage.editMessage`. */
+  /** Keyboard-reachable "inspect" action; clicking the bubble itself only works with a pointer. */
+  onInspect?: (id: string) => void
+  /**
+   * Editing a prompt truncates the reply that followed it and resends — see `PlaygroundPage.editMessage`.
+   * Omitted while a reply is in flight, so an edit can't race the pending request.
+   */
   onEdit?: (id: string, text: string) => void
 }
 
-export function MessageBubble({ message, agent, selected, onSelect, onEdit }: Props) {
+export function MessageBubble({ message, agent, selected, onSelect, onInspect, onEdit }: Props) {
   const [copied, copy] = useCopy()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(message.content)
@@ -48,8 +53,11 @@ export function MessageBubble({ message, agent, selected, onSelect, onEdit }: Pr
   }
 
   function saveEdit() {
+    // Keep the editor (and the draft) open rather than silently dropping it if resending is
+    // unavailable right now — a reply to this conversation is still pending.
+    if (!onEdit) return
     const text = draft.trim()
-    if (text && text !== message.content) onEdit?.(message.id, text)
+    if (text && text !== message.content) onEdit(message.id, text)
     setEditing(false)
   }
 
@@ -102,13 +110,24 @@ export function MessageBubble({ message, agent, selected, onSelect, onEdit }: Pr
             />
             <div className="msg-edit-actions">
               <span className="small faint">
-                <kbd>Enter</kbd> to save · <kbd>Esc</kbd> to cancel
+                {onEdit ? (
+                  <>
+                    <kbd>Enter</kbd> to save · <kbd>Esc</kbd> to cancel
+                  </>
+                ) : (
+                  'Waiting for the current reply before resending…'
+                )}
               </span>
               <div className="row" style={{ gap: 6 }}>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={cancelEdit}>
                   <IconX width={14} height={14} /> Cancel
                 </button>
-                <button type="button" className="btn btn-primary btn-sm" onClick={saveEdit} disabled={!draft.trim()}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={saveEdit}
+                  disabled={!draft.trim() || !onEdit}
+                >
                   <IconCheck width={14} height={14} /> Save &amp; resend
                 </button>
               </div>
@@ -122,6 +141,21 @@ export function MessageBubble({ message, agent, selected, onSelect, onEdit }: Pr
           >
             {message.role === 'error' ? <p>{message.content}</p> : <Markdown source={message.content} />}
             <div className="msg-bubble-actions">
+              {selectable && onInspect && (
+                <button
+                  type="button"
+                  className={`msg-action msg-inspect ${selected ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onInspect(message.id)
+                  }}
+                  aria-label="Inspect this response"
+                  aria-pressed={!!selected}
+                  title="Inspect"
+                >
+                  <IconPanelRight width={13} height={13} />
+                </button>
+              )}
               {editable && (
                 <button
                   type="button"
