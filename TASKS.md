@@ -8,7 +8,7 @@
 How to build each backend phase: [`BACKEND.md`](BACKEND.md) · How to run it: [`README.md`](README.md)
 
 [![Frontend](https://img.shields.io/badge/Frontend-ready-34d399?logo=react&logoColor=white)](#-where-things-stand)
-[![Backend](https://img.shields.io/badge/Backend-Phase%205%20of%207-fbbf24?logo=springboot&logoColor=white)](#-where-things-stand)
+[![Backend](https://img.shields.io/badge/Backend-Phase%206%20of%207-fbbf24?logo=springboot&logoColor=white)](#-where-things-stand)
 [![Security](https://img.shields.io/badge/Leaked%20key-rotate%20first-f87171)](#-do-these-next)
 [![Updated](https://img.shields.io/badge/Updated-Oct%2010%2C%202026-8b7cff)](#-where-things-stand)
 
@@ -21,12 +21,12 @@ How to build each backend phase: [`BACKEND.md`](BACKEND.md) · How to run it: [`
 | | |
 |---|---|
 | 🖥️ **Frontend** | 🟢 Finished — lint ✅ build ✅, runs on its own with **simulated** replies |
-| ⚙️ **Backend** | 🟡 5 agents on Gemini · file uploads · files and memory survive a restart (H2) · Phases 5–7 to go |
-| 🔐 **Login** | 🔴 Placeholder — any username and password gets in ([`App.tsx:30`](Frontend/src/App.tsx#L30)) |
-| 🧪 **Tests** | 🟡 Backend: 89 passing, no key or network needed · Frontend: none |
+| ⚙️ **Backend** | 🟡 5 agents on Gemini · uploads · H2 storage · **login required** · Phases 6–7 to go |
+| 🔐 **Login** | 🟢 Real session login · accounts from `AUTH_USERS` in `Backend/.env` (not set yet → one-time `admin` password in the log) |
+| 🧪 **Tests** | 🟡 Backend: 110 passing, no key or network needed · Frontend: none |
 | 📚 **Docs** | 🟡 Behind the code — `README.md` still says there's no backend, and links to removed or missing files |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Phases 1–4 pushed to `origin/main` · working tree clean |
+| 💾 **Git** | 🟢 Phases 1–5 pushed to `origin/main` · working tree clean |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -41,9 +41,9 @@ flowchart LR
     classDef todo fill:#e5e7eb,stroke:#6b7280,color:#1f2937
     P0["🧹 0<br/>Get ready"] --> P1["🧱 1<br/>Skeleton"] --> P2["🤖 2<br/>First agent"] --> P3["🧠 3<br/>More agents<br/>+ memory"]
     P3 --> P4["📎 4<br/>Files"] --> P5["🔐 5<br/>Login"] --> P6["🔁 6<br/>Failover"] --> P7["🚀 7<br/>Launch"]
-    class P1,P2,P3,P4 done
+    class P1,P2,P3,P4,P5 done
     class P0 doing
-    class P5,P6,P7 todo
+    class P6,P7 todo
 ```
 
 | Phase | Status | Left to do |
@@ -53,7 +53,7 @@ flowchart LR
 | 🤖 **2 · First agent** | 🟢 | — |
 | 🧠 **3 · More agents + memory** | 🟢 | — |
 | 📎 **4 · Files** | 🟢 | — |
-| 🔐 **5 · Login** | 🔴 | Spring Security + frontend wiring |
+| 🔐 **5 · Login** | 🟢 | — |
 | 🔁 **6 · Failover** | 🔴 | Provider chain |
 | 🚀 **7 · Launch & extras** | 🔴 | Streaming, Docker, CI |
 
@@ -62,8 +62,9 @@ flowchart LR
 ## 🔥 Do these next
 
 1. 🔑 **Make sure the leaked keys are revoked** in Google AI Studio (`…Egng` and `…5i5w`).
-2. 🔐 **Start Phase 5**: real login, backend and frontend.
-3. 📚 **Bring `README.md` up to date**: the backend runs now, and the old links are broken.
+2. 👤 **Add your account** to `Backend/.env`: `AUTH_USERS=yourname:a-long-password`
+3. 🔁 **Start Phase 6**: provider failover.
+4. 📚 **Bring `README.md` up to date**: it still says any username and password gets in.
 
 ---
 
@@ -231,20 +232,54 @@ flowchart LR
 ### 🔐 Phase 5 — Login
 
 **Backend**
-- [ ] ➕ `spring-boot-starter-security`
-- [ ] 🛡️ `SecurityConfig` — every route needs a session, except login
-- [ ] 🌐 `AuthController` — `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me`
-- [ ] 📦 `LoginRequest` · `AuthResponse`
-- [ ] ❗ The `401` uses problem+json too
+- [x] ➕ `spring-boot-starter-security` (+ `-test`)
+- [x] 🛡️ `SecurityConfig` — every route needs a session, except login, logout and `/actuator/health`
+- [x] 🌐 `AuthController` — `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me`
+- [x] 📦 `LoginRequest` (never prints the password) · `AuthResponse`
+- [x] ❗ The `401` uses problem+json too; a wrong username and a wrong password get the same answer
+- [x] 👤 Accounts from `AUTH_USERS` (`name:password,…`), BCrypt-hashed on boot; a malformed or repeated entry stops startup
+- [x] 🔒 Safer than the old version: **no `admin`/`admin` default** (random one-time password instead), **new session id on
+  login** (session fixation), cookie `HttpOnly; SameSite=Strict`, no session opened by rejected calls, 8 h timeout
 
 **Frontend**
-- [ ] 🔌 Replace the `TODO` in [`App.tsx:30`](Frontend/src/App.tsx#L30) with the real login call
-- [ ] ♻️ Bring back `useAuth.ts`: `git show 434d0ed^:Frontend/src/hooks/useAuth.ts`
-- [ ] 🔄 Stay signed in after a page refresh (`GET /api/auth/me` on load)
-- [ ] ⏱️ A `401` from any call sends you back to the login page
-- [ ] 🚪 Account row + **Sign out** button in the Sidebar
+- [x] 🔌 Replaced the `TODO` in `App.tsx` with the real login call
+- [x] ♻️ Brought back `useAuth.ts`
+- [x] 🔄 Stays signed in after a page refresh (`GET /api/auth/me` on load, with a short splash)
+- [x] ⏱️ A `401` from any call sends you back to the login page
+- [x] 🚪 Account row + **Sign out** button in the Sidebar (name hidden on phones)
+- [x] 💬 Login page explains where accounts come from, and says plainly when the backend can't be reached
+- [x] 🧪 `./mvnw test` → 110 🟢 · `npm run lint` + `npm run build` 🟢
+- [x] 💾 Committed and pushed: `12880ad` backend login · `8e9f564` frontend login
 
-✅ **Done when** `/api/agents` returns `401` before signing in, and everything works after.
+✅ **Done when** `/api/agents` returns `401` before signing in, and everything works after. **Checked Oct 10:** 🟢
+
+| Check (through the frontend proxy, with your real `.env`) | Result |
+|---|---|
+| 🚫 `/api/agents`, `/api/auth/me` without a session | 🟢 `401` problem+json · no cookie handed out |
+| 🔑 Wrong password | 🟢 `401` *"Incorrect username or password."* |
+| ✅ Sign in as `admin` with the one-time password from the log | 🟢 `200` · cookie `HttpOnly; SameSite=Strict` |
+| 🤖 With the session: agents · a real Gemini run · upload + delete | 🟢 5 agents · *"Ready."* · `201` / `204` |
+| 🚪 Sign out, then reuse the old cookie | 🟢 `204`, then `401` |
+
+```mermaid
+sequenceDiagram
+    actor U as 👤 You
+    participant L as 🔐 Login page
+    participant A as ⚙️ AuthController
+    participant C as 🖥️ Console
+    U->>L: username + password
+    L->>A: POST /api/auth/login
+    A-->>L: 200 + session cookie (new id)
+    L->>C: open the console
+    C->>A: every /api call carries the cookie
+    A-->>C: 401 if the session is gone → back to Login
+```
+
+> ⚠️ **Not checked:** clicking through the login page in a real browser. The API flow, lint and build all pass; give it
+> one manual try. Also by design: login needs the backend (no offline bypass), and restarting the backend signs
+> everyone out (sessions live in memory).
+
+- [ ] 💬 Chats are stored per **browser**, not per account: two people sharing a browser see each other's chats
 
 ### 🔁 Phase 6 — Provider failover
 
@@ -274,9 +309,8 @@ flowchart LR
 
 Small fixes you can do now, without the backend:
 
-- [ ] ✏️ Login error says *"email or username"*; there are no emails ([`LoginPage.tsx:157`](Frontend/src/pages/LoginPage.tsx#L157))
-- [ ] 💬 [`client.ts:7`](Frontend/src/api/client.ts#L7) points to a `Backend/README.md` that doesn't exist, and lists
-  `GET /api/documents`, which nothing calls
+- [x] ✏️ Login error said *"email or username"*; now *"Enter your username and password."*
+- [x] 💬 `client.ts` header now lists the real endpoints (auth included) and points to `BACKEND.md`
 - [ ] 🔑 The "no API key" hints name `GROQ_API_KEY`, but the backend uses `GEMINI_API_KEY`. Show `platform.keyEnvVar` instead
   ([`App.tsx:133`](Frontend/src/App.tsx#L133), [`OverviewPage.tsx:89`](Frontend/src/pages/OverviewPage.tsx#L89))
 - [ ] 🧪 Add tests (there are none) — e.g. Vitest for `lib/` and `api/client.ts`
@@ -287,8 +321,9 @@ Small fixes you can do now, without the backend:
 ## 📚 Docs & housekeeping
 
 - [x] 📈 `PROGRESS.md` removed (`25f5d71`)
-- [ ] 📖 **`README.md` still describes a repo with no backend.** Update it for Phase 2:
-  - add **how to run the backend**: copy `.env.example` to `.env`, add the key, `./mvnw spring-boot:run` from `Backend/`
+- [ ] 📖 **`README.md` still describes a repo with no backend.** Update it for Phases 2–5:
+  - add **how to run the backend**: copy `.env.example` to `.env`, add the key and `AUTH_USERS`, `./mvnw spring-boot:run` from `Backend/`
+  - Quick start (line 54) says *any username and password* gets in; Security notes say the login protects nothing
   - the status note (line 19), the *rebuilding* badge (13), the diagram (72), line 127 and the footer (194)
   - Troubleshooting (line 162) still says *"there is no backend yet"*
 - [ ] 🔗 Remove the links to `PROGRESS.md` from `README.md` (lines 20, 123, 154, 187) and `BACKEND.md` (footer)
@@ -308,7 +343,7 @@ Small fixes you can do now, without the backend:
 - [ ] 🔑 The leaked key is revoked (see [Do these next](#-do-these-next))
 - [ ] 🧹 Delete the local branch `backup-before-scrub`, the only place both leaked keys still sit together
   (`53ec5b2`, `6619ece`). It was never pushed, and deleting it can't be undone
-- [ ] 🏠 Keep `server.address=127.0.0.1` until Phase 5 login works
+- [ ] 🏠 Keep `server.address=127.0.0.1` until HTTPS works (login is done; passwords still travel unencrypted over plain HTTP)
 - [ ] 🔐 HTTPS + `Secure` cookies (Phase 7)
 - [ ] 🙈 No keys in `VITE_*` variables; every visitor can see them
 
