@@ -4,17 +4,19 @@ import { isRecord, titleCase } from '../lib/util'
 import { MOCK_AGENTS, MOCK_PLATFORM, mockDeleteDocument, mockRun, mockUploadDocument } from './mock'
 
 /**
- * Backend contract (see Backend/README.md):
+ * Backend contract (see BACKEND.md):
  *
+ *   POST   /api/auth/login               <- {username, password} -> AuthUser (starts a session)
+ *   POST   /api/auth/logout              (ends the session)
+ *   GET    /api/auth/me                  -> AuthUser, or 401 without a session
  *   GET    /api/platform                 -> PlatformStatus
  *   GET    /api/agents                   -> AgentSummary[]
  *   POST   /api/agents/{id}/run          <- AgentRequest  -> RunAgentResponse
- *   GET    /api/documents                -> DocumentSummary[]
  *   POST   /api/documents (multipart)    -> DocumentSummary
  *   DELETE /api/documents/{id}
  *   DELETE /api/conversations/{id}       (forget server-side memory)
  *
- * Errors follow RFC 9457 problem+json.
+ * Every route except login/logout needs the session cookie. Errors follow RFC 9457 problem+json.
  */
 
 export type BackendStatus = 'checking' | 'online' | 'offline' | 'simulated'
@@ -54,6 +56,18 @@ export function getBackendStatus(): BackendStatus {
 export function subscribeBackendStatus(listener: () => void): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)
+}
+
+// --- session-expiry notifications -------------------------------------------
+// A session that ends mid-visit (backend restarted, timed out) surfaces as a 401 on whatever call
+// happens to be in flight, from anywhere in the console. http() reports every 401 here, and useAuth
+// is the one subscriber: it sends the person back to the login page instead of leaving the console
+// quietly running on simulated replies.
+const authExpiredListeners = new Set<() => void>()
+
+export function subscribeAuthExpired(listener: () => void): () => void {
+  authExpiredListeners.add(listener)
+  return () => authExpiredListeners.delete(listener)
 }
 
 // --- config ----------------------------------------------------------------
@@ -129,6 +143,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
       // non-JSON body
     }
     if (!fromBackend && res.status >= 500) detail = `The backend could not be reached (HTTP ${res.status}).`
+    if (res.status === 401) authExpiredListeners.forEach((l) => l())
     throw new ApiError(res.status, detail, title, fromBackend)
   }
   if (res.status === 204) return undefined as T
@@ -260,6 +275,48 @@ export async function uploadDocument(file: File): Promise<DocumentSummary> {
 export async function deleteDocument(id: string): Promise<void> {
   if (simulated()) return mockDeleteDocument(id)
   await http<void>(`/documents/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+// --- auth --------------------------------------------------------------------
+// Unlike everything above, these never fall back to the simulation: signing in always needs the
+// real backend. Simulation mode is a setting inside the console, and login is what gates the console.
+export interface AuthUser {
+  username: string
+}
+
+function toAuthUser(raw: unknown): AuthUser {
+  if (!isRecord(raw) || typeof raw.username !== 'string') throw invalidResponse('the signed-in user')
+  return { username: raw.username }
+}
+
+/** A failed fetch (nothing listening, proxy down) reads as "Failed to fetch"; say what it means. */
+function unreachable(err: unknown): unknown {
+  return err instanceof ApiError ? err : new Error('Could not reach the backend. Start it, then try again.', { cause: err })
+}
+
+export async function login(username: string, password: string): Promise<AuthUser> {
+  try {
+    return toAuthUser(await http<unknown>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }))
+  } catch (err) {
+    throw unreachable(err)
+  }
+}
+
+export async function logout(): Promise<void> {
+  await http<void>('/auth/logout', { method: 'POST' })
+}
+
+/**
+ * The signed-in user for the current session cookie, or `null` when there isn't one. "Not signed
+ * in" is an ordinary answer; only an unreachable or broken backend throws.
+ */
+export async function me(): Promise<AuthUser | null> {
+  try {
+    return toAuthUser(await http<unknown>('/auth/me'))
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) return null
+    throw unreachable(err)
+  }
 }
 
 // --- conversations ---------------------------------------------------------

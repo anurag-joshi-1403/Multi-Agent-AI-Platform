@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { useAgents } from './hooks/useAgents'
+import { useAuth } from './hooks/useAuth'
 import { useAutoCollapseOnRoute } from './hooks/useAutoCollapseOnRoute'
 import { useBackendStatus } from './hooks/useBackendStatus'
 import { useConversations } from './hooks/useConversations'
@@ -12,33 +13,38 @@ import { LoginPage } from './pages/LoginPage'
 import { OverviewPage } from './pages/OverviewPage'
 import { PlaygroundPage } from './pages/PlaygroundPage'
 import { SettingsPage } from './pages/SettingsPage'
+import type { AuthApi } from './hooks/useAuth'
 import type { Theme } from './hooks/useTheme'
 import './app.css'
 
 /**
- * Shows the login front page until it is submitted, then the console. There is no authentication
- * behind it yet — `enter` is the placeholder where a real sign-in call belongs.
+ * Gates the console behind a real login. Nothing below this — not even the first `/api/agents`
+ * call — runs until there is a session, so `Console` mounts (and its hooks start sending requests)
+ * only once the requests can succeed.
  */
 function App() {
+  const auth = useAuth()
   // Called once here rather than inside Console, so the login screen and the console share the
   // same theme state (and the same localStorage key) instead of two independent hook instances
   // that would only happen to agree at mount.
   const [theme, toggleTheme] = useTheme()
-  const [entered, setEntered] = useState(false)
 
-  const enter = useCallback(async () => {
-    // TODO: authenticate here (LoginPage passes username and password).
-    setEntered(true)
-  }, [])
-
-  if (!entered) {
-    return <LoginPage onLogin={enter} theme={theme} onToggleTheme={toggleTheme} />
+  if (auth.status === 'checking') {
+    return (
+      <div className="auth-splash" aria-busy="true" aria-label="Checking your session">
+        <span className="spinner" aria-hidden />
+      </div>
+    )
   }
 
-  return <Console theme={theme} toggleTheme={toggleTheme} />
+  if (auth.status === 'anonymous') {
+    return <LoginPage onLogin={auth.login} checkError={auth.checkError} theme={theme} onToggleTheme={toggleTheme} />
+  }
+
+  return <Console auth={auth} theme={theme} toggleTheme={toggleTheme} />
 }
 
-function Console({ theme, toggleTheme }: { theme: Theme; toggleTheme: () => void }) {
+function Console({ auth, theme, toggleTheme }: { auth: AuthApi; theme: Theme; toggleTheme: () => void }) {
   const [route, navigate] = useHashRoute()
   const [sidebarCollapsed, toggleSidebar] = useAutoCollapseOnRoute(route)
   const { agents, loading, reload } = useAgents()
@@ -110,6 +116,8 @@ function Console({ theme, toggleTheme }: { theme: Theme; toggleTheme: () => void
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
         onToggleTheme={toggleTheme}
+        user={auth.user}
+        onSignOut={auth.logout}
       />
       <main className="main">
         {status === 'offline' && (

@@ -22,6 +22,9 @@ import type { Theme } from '../hooks/useTheme'
 
 interface Props {
   onLogin: (username: string, password: string) => Promise<void>
+  /** Set when the first session check itself failed (backend unreachable). Shown as a hint, not an
+   * error, since it isn't the result of anything the person did. */
+  checkError: string | null
   /** Shared with the console via `App` — one dark/light preference for the whole app, login screen
    * included, rather than this page defaulting to light regardless of what was chosen inside. */
   theme: Theme
@@ -76,8 +79,12 @@ function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-/** Login front page. The form is UI only — `onLogin` is where authentication gets wired in. */
-export function LoginPage({ onLogin, theme, onToggleTheme }: Props) {
+/**
+ * Login front page; gates the whole console. There is no simulation-mode bypass on purpose:
+ * simulation is a setting reached from inside the console, and a backend that can't be reached
+ * means nobody can sign in, as with any other login page.
+ */
+export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) {
   const remembered = loadString(STORAGE_KEYS.rememberUser)
   const [username, setUsername] = useState(remembered ?? '')
   const [password, setPassword] = useState('')
@@ -154,7 +161,7 @@ export function LoginPage({ onLogin, theme, onToggleTheme }: Props) {
     const user = username.trim()
     if (!user || !password) {
       setNotice(null)
-      setError('Enter your email or username and your password.')
+      setError('Enter your username and password.')
       return
     }
     setBusy(true)
@@ -249,6 +256,17 @@ export function LoginPage({ onLogin, theme, onToggleTheme }: Props) {
             {!error && notice && (
               <p className="ap-alert ap-alert-info" role="status">
                 {notice}
+              </p>
+            )}
+            {!error && !notice && checkError && (
+              <p className="ap-alert ap-alert-info" role="status">
+                Couldn&rsquo;t reach the backend to check for a saved session: {checkError}
+              </p>
+            )}
+            {!error && !notice && !checkError && (
+              <p className="ap-hint">
+                Accounts come from <code>AUTH_USERS</code> in <code>Backend/.env</code>. Not set yet? The backend
+                log shows a one-time <code>admin</code> password.
               </p>
             )}
 

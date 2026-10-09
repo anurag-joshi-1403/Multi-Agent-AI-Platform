@@ -261,6 +261,60 @@
   height: 36px;
   padding: 0;
 }
+
+/* --- signed-in account + sign out --- */
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+}
+.account-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+.account-name {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sign-out-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.sign-out-btn:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+.sidebar.collapsed .account-name {
+  display: none;
+}
+.sidebar.collapsed .account-row {
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Shown for the moment it takes to check for a saved session */
+.auth-splash {
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+}
 .badge-compact {
   padding: 6px;
   width: 22px;
@@ -2065,6 +2119,10 @@
     margin-top: 0;
     margin-left: auto;
     flex-direction: row;
+  }
+  /* Top bar on phones: avatar and sign-out only; the name is the avatar's tooltip */
+  .account-name {
+    display: none;
   }
   .page {
     padding: 18px 16px 32px;

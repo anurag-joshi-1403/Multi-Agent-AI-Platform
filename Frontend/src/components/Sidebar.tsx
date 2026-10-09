@@ -1,8 +1,10 @@
+import { useState } from 'react'
+import type { AuthUser } from '../api/client'
 import { href } from '../hooks/useHashRoute'
 import type { Route } from '../hooks/useHashRoute'
 import type { Theme } from '../hooks/useTheme'
 import { BackendStatusBadge } from './BackendStatusBadge'
-import { IconBot, IconChat, IconChevronLeft, IconGrid, IconMoon, IconPanelLeft, IconSettings, IconSun } from './Icons'
+import { IconBot, IconChat, IconChevronLeft, IconGrid, IconLogout, IconMoon, IconPanelLeft, IconSettings, IconSun } from './Icons'
 
 interface Props {
   route: Route
@@ -10,6 +12,8 @@ interface Props {
   collapsed: boolean
   onToggleCollapsed: () => void
   onToggleTheme: () => void
+  user: AuthUser | null
+  onSignOut: () => Promise<void>
 }
 
 const NAV: Array<{ route: Route; label: string; Icon: typeof IconGrid }> = [
@@ -19,7 +23,8 @@ const NAV: Array<{ route: Route; label: string; Icon: typeof IconGrid }> = [
   { route: { page: 'settings' }, label: 'Settings', Icon: IconSettings },
 ]
 
-export function Sidebar({ route, theme, collapsed, onToggleCollapsed, onToggleTheme }: Props) {
+export function Sidebar({ route, theme, collapsed, onToggleCollapsed, onToggleTheme, user, onSignOut }: Props) {
+  const [signingOut, setSigningOut] = useState(false)
   const themeLabel = theme === 'dark' ? 'Light mode' : 'Dark mode'
   const collapseLabel = collapsed ? 'Expand sidebar' : 'Collapse sidebar'
 
@@ -64,6 +69,28 @@ export function Sidebar({ route, theme, collapsed, onToggleCollapsed, onToggleTh
       </nav>
 
       <div className="sidebar-foot">
+        {user && (
+          <div className="account-row" title={`Signed in as ${user.username}`}>
+            <span className="account-avatar" aria-hidden>
+              {user.username.slice(0, 1).toUpperCase()}
+            </span>
+            <span className="account-name grow">{user.username}</span>
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon sign-out-btn"
+              onClick={() => {
+                // No reset on success: App swaps this Sidebar for the login page.
+                setSigningOut(true)
+                void onSignOut()
+              }}
+              disabled={signingOut}
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <IconLogout width={15} height={15} />
+            </button>
+          </div>
+        )}
         <BackendStatusBadge compact={collapsed} />
         <button
           type="button"
