@@ -8,7 +8,7 @@
 How to build each backend phase: [`BACKEND.md`](BACKEND.md) · How to run it: [`README.md`](README.md)
 
 [![Frontend](https://img.shields.io/badge/Frontend-ready-34d399?logo=react&logoColor=white)](#-where-things-stand)
-[![Backend](https://img.shields.io/badge/Backend-Phase%204%20of%207-fbbf24?logo=springboot&logoColor=white)](#-where-things-stand)
+[![Backend](https://img.shields.io/badge/Backend-Phase%205%20of%207-fbbf24?logo=springboot&logoColor=white)](#-where-things-stand)
 [![Security](https://img.shields.io/badge/Leaked%20key-rotate%20first-f87171)](#-do-these-next)
 [![Updated](https://img.shields.io/badge/Updated-Oct%2010%2C%202026-8b7cff)](#-where-things-stand)
 
@@ -21,12 +21,12 @@ How to build each backend phase: [`BACKEND.md`](BACKEND.md) · How to run it: [`
 | | |
 |---|---|
 | 🖥️ **Frontend** | 🟢 Finished — lint ✅ build ✅, runs on its own with **simulated** replies |
-| ⚙️ **Backend** | 🟡 4 agents live on Gemini, with conversation memory · 4 endpoints · Phases 4–7 to go |
+| ⚙️ **Backend** | 🟡 5 agents on Gemini · file uploads · files and memory survive a restart (H2) · Phases 5–7 to go |
 | 🔐 **Login** | 🔴 Placeholder — any username and password gets in ([`App.tsx:30`](Frontend/src/App.tsx#L30)) |
-| 🧪 **Tests** | 🟡 Backend: 58 passing, no key or network needed · Frontend: none |
+| 🧪 **Tests** | 🟡 Backend: 89 passing, no key or network needed · Frontend: none |
 | 📚 **Docs** | 🟡 Behind the code — `README.md` still says there's no backend, and links to removed or missing files |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Phases 1–3 pushed to `origin/main` · working tree clean |
+| 💾 **Git** | 🟢 Phases 1–4 pushed to `origin/main` · working tree clean |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -41,9 +41,9 @@ flowchart LR
     classDef todo fill:#e5e7eb,stroke:#6b7280,color:#1f2937
     P0["🧹 0<br/>Get ready"] --> P1["🧱 1<br/>Skeleton"] --> P2["🤖 2<br/>First agent"] --> P3["🧠 3<br/>More agents<br/>+ memory"]
     P3 --> P4["📎 4<br/>Files"] --> P5["🔐 5<br/>Login"] --> P6["🔁 6<br/>Failover"] --> P7["🚀 7<br/>Launch"]
-    class P1,P2,P3 done
+    class P1,P2,P3,P4 done
     class P0 doing
-    class P4,P5,P6,P7 todo
+    class P5,P6,P7 todo
 ```
 
 | Phase | Status | Left to do |
@@ -52,7 +52,7 @@ flowchart LR
 | 🧱 **1 · Skeleton** | 🟢 | — |
 | 🤖 **2 · First agent** | 🟢 | — |
 | 🧠 **3 · More agents + memory** | 🟢 | — |
-| 📎 **4 · Files** | 🔴 | Uploads, H2 storage, Document Agent |
+| 📎 **4 · Files** | 🟢 | — |
 | 🔐 **5 · Login** | 🔴 | Spring Security + frontend wiring |
 | 🔁 **6 · Failover** | 🔴 | Provider chain |
 | 🚀 **7 · Launch & extras** | 🔴 | Streaming, Docker, CI |
@@ -62,7 +62,7 @@ flowchart LR
 ## 🔥 Do these next
 
 1. 🔑 **Make sure the leaked keys are revoked** in Google AI Studio (`…Egng` and `…5i5w`).
-2. 📎 **Start Phase 4**: file uploads, H2 storage and the Document Agent.
+2. 🔐 **Start Phase 5**: real login, backend and frontend.
 3. 📚 **Bring `README.md` up to date**: the backend runs now, and the old links are broken.
 
 ---
@@ -185,16 +185,48 @@ sequenceDiagram
 
 ### 📎 Phase 4 — Files
 
-- [ ] ➕ `pom.xml`: `spring-boot-starter-jdbc` · `h2` · `spring-ai-pdf-document-reader` · `spring-ai-starter-model-chat-memory-repository-jdbc`
-- [ ] 🗄️ `schema.sql` — the documents table
-- [ ] 📎 `document/` — `StoredDocument` · `DocumentStore` · `JdbcDocumentStore` · `DocumentTextExtractor` · `AttachmentResolver` · 2 exceptions
-- [ ] ⚙️ `StorageConfig` · 📦 `DocumentSummary` · 🌐 `DocumentController`
-- [ ] 📄 `DocumentAgent` — answers only from attached files
-- [ ] 🙈 Add `data/` to `Backend/.gitignore`
-- [ ] 📊 `/api/platform`: report real document counts (all `0` today)
-- [ ] 🔁 Test a real restart, not just `./mvnw test`
+- [x] ➕ `pom.xml`: `spring-boot-starter-jdbc` · `h2` · `spring-ai-pdf-document-reader` · `spring-ai-starter-model-chat-memory-repository-jdbc`
+- [x] 🗄️ `schema.sql` — the documents table (works on H2 and Postgres)
+- [x] 📎 `document/` — `StoredDocument` · `DocumentStore` · `JdbcDocumentStore` · `DocumentTextExtractor` · `AttachmentResolver` · `UnsupportedDocumentException` (→ `415`)
+- [x] 📦 `DocumentSummary` · 🌐 `DocumentController` — `POST /api/documents` → `201`, `DELETE /api/documents/{id}` → `204`
+- [x] 📄 `DocumentAgent` — answers only from attached files; `400` without one (`InvalidAgentRequestException`)
+- [x] 📎 **Every** agent reads attached files (in the system prompt, never in memory) and reports `documentNames`
+- [x] 📝 Summarizer summarises the attached file, not the short message, when a file is attached
+- [x] 🙈 `Backend/data/` in `Backend/.gitignore`
+- [x] 📊 `/api/platform` reports real document counts and limits (50 files, 60 000 chars)
+- [x] 🧪 89 tests, including the real `schema.sql` on H2 — `./mvnw test` 🟢
+- [x] 🔁 Tested a real restart, not just `./mvnw test`
+- [x] 💾 Committed and pushed: `d41a0b6` H2 storage · `7b44671` uploads · `633fcd0` files for every agent + Document Agent
 
-✅ **Done when** an answer quotes an attached PDF, and the file is still there after a restart.
+> ✂️ **Left out on purpose:** `StorageConfig` and the old in-memory store. There is only one store now, so nothing
+> needs choosing; Postgres is a change of `SPRING_DATASOURCE_URL`, not of code. `DocumentNotFoundException` too:
+> nothing throws it without a "get one document" endpoint.
+
+✅ **Done when** an answer quotes an attached PDF, and the file is still there after a restart. **Checked Oct 10:** 🟢
+
+| Check (real Gemini, through the frontend proxy) | Result |
+|---|---|
+| 📤 Upload a 2-page PDF | 🟢 `201` · `pages: 2` · preview with `[page 1]` / `[page 2]` |
+| 📄 Document Agent: *"When does the lease renew?"* | 🟢 Quotes page 2: *"renews automatically every 1 May unless cancelled 90 days before"* |
+| 🚫 Document Agent with no file | 🟢 `400` *"needs at least one attached file"* |
+| 💬 General Assistant with the same file | 🟢 *"Northwind Traders"* · `documentNames: [lease.pdf]` |
+| 🖼️ PNG upload · 21 MB upload | 🟢 `415` · `413`, both problem+json |
+| 🔁 **Restart the backend** | 🟢 File still stored · rent question answered from it · memory: *"code word?"* → **Falcon** |
+| 🗑️ `DELETE /api/documents/{id}` | 🟢 `204`, stored count back to 0 |
+
+```mermaid
+flowchart LR
+    F["📎 File"] -->|"POST /api/documents"| X["🔍 DocumentTextExtractor<br/>PDF pages / text"]
+    X --> S[("🗄️ H2 file<br/>Backend/data")]
+    Q["💬 Message +<br/>attachments ids"] --> A["🤖 Any agent"]
+    S -->|"AttachmentResolver"| A
+    A -->|"system prompt + files"| G["☁️ Gemini"]
+    M[("🧠 Chat memory")] <--> A
+    M -.->|same database| S
+```
+
+- [ ] 🐘 Run once on a real Postgres (set `SPRING_DATASOURCE_URL`); the schema is written for it but only H2 is tested
+- [ ] 📏 The `413` message is Spring's *"Maximum upload size exceeded"*; it could name the 20 MB limit
 
 ### 🔐 Phase 5 — Login
 
