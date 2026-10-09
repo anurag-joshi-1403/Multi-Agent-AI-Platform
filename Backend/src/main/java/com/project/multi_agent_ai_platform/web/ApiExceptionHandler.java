@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.ResourceAccessException;
@@ -47,6 +48,16 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 	@ExceptionHandler({ InvalidAgentRequestException.class, IllegalArgumentException.class })
 	ProblemDetail badRequest(RuntimeException ex) {
 		return problem(HttpStatus.BAD_REQUEST, "Invalid request", ex.getMessage());
+	}
+
+	/**
+	 * Wrong username or password on {@code POST /api/auth/login}. The same message either way, so
+	 * it cannot be used to find out which usernames exist. (A request with no session never reaches
+	 * a controller; SecurityConfig's entry point answers that one.)
+	 */
+	@ExceptionHandler(AuthenticationException.class)
+	ProblemDetail authenticationFailed(AuthenticationException ex) {
+		return problem(HttpStatus.UNAUTHORIZED, "Invalid credentials", "Incorrect username or password.");
 	}
 
 	@ExceptionHandler(UnsupportedDocumentException.class)

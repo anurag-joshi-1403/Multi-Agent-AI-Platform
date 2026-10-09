@@ -22,7 +22,7 @@ import com.project.multi_agent_ai_platform.agent.llm.StubChatModel;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
 
 @WebMvcTest(ConversationController.class)
-@Import(ConversationControllerTest.Config.class)
+@Import({ ConversationControllerTest.Config.class, SignedInWebTest.class })
 class ConversationControllerTest {
 
 	@TestConfiguration

@@ -35,7 +35,8 @@ class JdbcDocumentStoreTest {
 	}
 
 	private static PlatformProperties maxStored(int maxStored) {
-		return new PlatformProperties(new PlatformProperties.Memory(20), new PlatformProperties.Documents(1000, maxStored));
+		return new PlatformProperties(new PlatformProperties.Memory(20), new PlatformProperties.Documents(1000, maxStored),
+				new PlatformProperties.Auth(""));
 	}
 
 	private JdbcDocumentStore store(int maxStored) {

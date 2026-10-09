@@ -32,7 +32,7 @@ import com.project.multi_agent_ai_platform.document.FakeDocumentStore;
 import com.project.multi_agent_ai_platform.document.TestPdf;
 
 @WebMvcTest(DocumentController.class)
-@Import({ DocumentTextExtractor.class, DocumentControllerTest.Config.class })
+@Import({ DocumentTextExtractor.class, DocumentControllerTest.Config.class, SignedInWebTest.class })
 class DocumentControllerTest {
 
 	@TestConfiguration

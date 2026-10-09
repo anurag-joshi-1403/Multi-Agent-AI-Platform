@@ -17,7 +17,8 @@ class AttachmentResolverTest {
 
 	private AttachmentResolver resolver(int maxContextChars) {
 		return new AttachmentResolver(store,
-				new PlatformProperties(new PlatformProperties.Memory(20), new PlatformProperties.Documents(maxContextChars, 50)));
+				new PlatformProperties(new PlatformProperties.Memory(20),
+						new PlatformProperties.Documents(maxContextChars, 50), new PlatformProperties.Auth("")));
 	}
 
 	private static AgentRequest withAttachments(Object value) {

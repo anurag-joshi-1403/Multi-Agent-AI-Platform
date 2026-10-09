@@ -29,7 +29,7 @@ import com.project.multi_agent_ai_platform.document.DocumentStore;
 import com.project.multi_agent_ai_platform.document.FakeDocumentStore;
 
 @WebMvcTest(PlatformController.class)
-@Import(PlatformControllerTest.ProviderConfig.class)
+@Import({ PlatformControllerTest.ProviderConfig.class, SignedInWebTest.class })
 @EnableConfigurationProperties(PlatformProperties.class)
 class PlatformControllerTest {
 

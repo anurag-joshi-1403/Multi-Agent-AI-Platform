@@ -41,7 +41,7 @@ import com.project.multi_agent_ai_platform.agent.core.UnknownAgentException;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
 
 @WebMvcTest(AgentController.class)
-@Import(AgentControllerTest.ProviderConfig.class)
+@Import({ AgentControllerTest.ProviderConfig.class, SignedInWebTest.class })
 class AgentControllerTest {
 
 	@TestConfiguration
