@@ -8,7 +8,7 @@
 How to build each backend phase: [`BACKEND.md`](BACKEND.md) · How to run it: [`README.md`](README.md)
 
 [![Frontend](https://img.shields.io/badge/Frontend-ready-34d399?logo=react&logoColor=white)](#-where-things-stand)
-[![Backend](https://img.shields.io/badge/Backend-Phase%203%20of%207-fbbf24?logo=springboot&logoColor=white)](#-where-things-stand)
+[![Backend](https://img.shields.io/badge/Backend-Phase%204%20of%207-fbbf24?logo=springboot&logoColor=white)](#-where-things-stand)
 [![Security](https://img.shields.io/badge/Leaked%20key-rotate%20first-f87171)](#-do-these-next)
 [![Updated](https://img.shields.io/badge/Updated-Oct%2010%2C%202026-8b7cff)](#-where-things-stand)
 
@@ -21,12 +21,12 @@ How to build each backend phase: [`BACKEND.md`](BACKEND.md) · How to run it: [`
 | | |
 |---|---|
 | 🖥️ **Frontend** | 🟢 Finished — lint ✅ build ✅, runs on its own with **simulated** replies |
-| ⚙️ **Backend** | 🟡 First agent live — the General Assistant answers for real through Gemini · 3 endpoints · Phases 3–7 to go |
+| ⚙️ **Backend** | 🟡 4 agents live on Gemini, with conversation memory · 4 endpoints · Phases 4–7 to go |
 | 🔐 **Login** | 🔴 Placeholder — any username and password gets in ([`App.tsx:30`](Frontend/src/App.tsx#L30)) |
-| 🧪 **Tests** | 🟡 Backend: 35 passing, no key or network needed · Frontend: none |
+| 🧪 **Tests** | 🟡 Backend: 58 passing, no key or network needed · Frontend: none |
 | 📚 **Docs** | 🟡 Behind the code — `README.md` still says there's no backend, and links to removed or missing files |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Phases 1–2 pushed to `origin/main` (`6dbfe12`) · working tree clean |
+| 💾 **Git** | 🟢 Phases 1–3 pushed to `origin/main` · working tree clean |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -41,9 +41,9 @@ flowchart LR
     classDef todo fill:#e5e7eb,stroke:#6b7280,color:#1f2937
     P0["🧹 0<br/>Get ready"] --> P1["🧱 1<br/>Skeleton"] --> P2["🤖 2<br/>First agent"] --> P3["🧠 3<br/>More agents<br/>+ memory"]
     P3 --> P4["📎 4<br/>Files"] --> P5["🔐 5<br/>Login"] --> P6["🔁 6<br/>Failover"] --> P7["🚀 7<br/>Launch"]
-    class P1,P2 done
+    class P1,P2,P3 done
     class P0 doing
-    class P3,P4,P5,P6,P7 todo
+    class P4,P5,P6,P7 todo
 ```
 
 | Phase | Status | Left to do |
@@ -51,7 +51,7 @@ flowchart LR
 | 🧹 **0 · Get ready** | 🟡 | Confirm the leaked keys are revoked |
 | 🧱 **1 · Skeleton** | 🟢 | — |
 | 🤖 **2 · First agent** | 🟢 | — |
-| 🧠 **3 · More agents + memory** | 🔴 | 3 agents, chat memory |
+| 🧠 **3 · More agents + memory** | 🟢 | — |
 | 📎 **4 · Files** | 🔴 | Uploads, H2 storage, Document Agent |
 | 🔐 **5 · Login** | 🔴 | Spring Security + frontend wiring |
 | 🔁 **6 · Failover** | 🔴 | Provider chain |
@@ -62,7 +62,7 @@ flowchart LR
 ## 🔥 Do these next
 
 1. 🔑 **Make sure the leaked keys are revoked** in Google AI Studio (`…Egng` and `…5i5w`).
-2. 🧠 **Start Phase 3**: three more agents and chat memory.
+2. 📎 **Start Phase 4**: file uploads, H2 storage and the Document Agent.
 3. 📚 **Bring `README.md` up to date**: the backend runs now, and the old links are broken.
 
 ---
@@ -142,15 +142,46 @@ flowchart LR
 
 ### 🧠 Phase 3 — More agents + memory
 
-- [ ] 🤖 `CodingAgent` (`language` option) · `ResearchAgent` · `SummarizerAgent` (`style`, `maxWords`)
-- [ ] ⚙️ `PlatformProperties` for `platform.*` settings
-- [ ] 🧠 Chat memory bean in `AiConfig` — last 20 messages per conversation
-- [ ] 🔧 `LlmAgent`: attach memory per `conversationId`, add `attribute()` helpers for agent options
-- [ ] 📊 `/api/platform`: report the real `memoryMaxMessages` (it says `0` today)
-- [ ] 🌐 `ConversationController` — `DELETE /api/conversations/{id}`
-- [ ] 🧪 Tests for each agent's options and for memory
+- [x] 🤖 `CodingAgent` (`language` option) · `ResearchAgent` · `SummarizerAgent` (`style`, `maxWords`)
+- [x] ⚙️ `PlatformProperties` for `platform.*` settings (`platform.memory.max-messages=20`)
+- [x] 🧠 Chat memory bean in `AiConfig` — last 20 messages per conversation, in RAM until Phase 4
+- [x] 🔧 `LlmAgent`: memory per `conversationId`, a failed call leaves no unanswered question behind, `attribute()` helpers
+- [x] 📊 `/api/platform`: reports the real `memoryMaxMessages` (20)
+- [x] 🌐 `ConversationController` — `DELETE /api/conversations/{id}` → `204`
+- [x] 🧪 58 tests: every agent's options, memory, forgetting — `./mvnw test` 🟢
+- [x] 💾 Committed and pushed: `ce9b0f9` memory · `6ea75a3` forget endpoint · `a7a1660` three agents
 
-✅ **Done when** the Agents page shows four agents and a follow-up question remembers the last one.
+✅ **Done when** the Agents page shows four agents and a follow-up question remembers the last one. **Checked Oct 10:** 🟢
+
+| Check (real Gemini, through the frontend proxy) | Result |
+|---|---|
+| 📋 `GET /api/agents` | 🟢 coding · general · research · summarizer, with their options |
+| 🧠 Follow-up question | 🟢 *"My favourite colour is teal"* → *"What is my favourite colour?"* → **Teal** |
+| 🗑️ `DELETE /api/conversations/{id}` | 🟢 `204`, then the same question → **unknown** |
+| 💻 Coding, `language=Python` / auto-detect | 🟢 Python code · `metadata.language` = `Python` / `rust` |
+| 📝 Summarizer, `tldr`, 25 words | 🟢 One sentence · `compressionRatio` 0.35 |
+| 🔬 Research | 🟢 Summary / findings format · `confidence` = `high` |
+
+```mermaid
+sequenceDiagram
+    participant UI as 🖥️ Console
+    participant A as 🤖 Agent
+    participant M as 🧠 Chat memory
+    participant G as ☁️ Gemini
+    UI->>A: message + conversationId
+    A->>M: load the last 20 messages
+    A->>G: system prompt + history + message
+    G-->>A: answer
+    A->>M: save question + answer
+    A-->>UI: reply + metadata
+```
+
+> 🐛 Fixed on the way: the old Research Agent read *"Confidence: medium, not high"* as **high**. It now takes the level
+> right after the heading.
+
+- [ ] ✏️ **Known gap:** editing an earlier message in the console drops later turns in the browser only. The server
+  still remembers them, so the re-asked question is answered with the old turns as context. Fix later: the console
+  could forget and replay the conversation, or send its history with each message.
 
 ### 📎 Phase 4 — Files
 
