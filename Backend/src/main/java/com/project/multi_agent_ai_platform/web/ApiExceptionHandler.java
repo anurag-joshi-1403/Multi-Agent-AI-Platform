@@ -16,6 +16,7 @@ import com.google.genai.errors.ApiException;
 import com.google.genai.errors.GenAiIOException;
 import com.project.multi_agent_ai_platform.agent.core.UnknownAgentException;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.document.UnsupportedDocumentException;
 
 /**
  * Maps exceptions to RFC 9457 problem details. Extending {@link ResponseEntityExceptionHandler}
@@ -45,6 +46,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 	@ExceptionHandler(IllegalArgumentException.class)
 	ProblemDetail badRequest(IllegalArgumentException ex) {
 		return problem(HttpStatus.BAD_REQUEST, "Invalid request", ex.getMessage());
+	}
+
+	@ExceptionHandler(UnsupportedDocumentException.class)
+	ProblemDetail unsupportedDocument(UnsupportedDocumentException ex) {
+		return problem(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported document", ex.getMessage());
 	}
 
 	/** Gemini answered with a non-2xx status. */

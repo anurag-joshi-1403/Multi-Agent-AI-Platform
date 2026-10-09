@@ -11,13 +11,11 @@ package com.project.multi_agent_ai_platform.web.dto;
  * @param keyEnvVar         which environment variable carries the key
  * @param agents            number of registered agents
  * @param memoryMaxMessages messages replayed per conversation
- * @param documents         document store limits and count (all {@code 0} until Phase 4)
+ * @param documents         uploads stored now, and the store's limits
  */
 public record PlatformStatus(String provider, String providerName, String model, boolean apiKeyConfigured,
 		String keyEnvVar, int agents, int memoryMaxMessages, Documents documents) {
 
 	public record Documents(int stored, int maxStored, int maxContextChars) {
-
-		public static final Documents NONE = new Documents(0, 0, 0);
 	}
 }

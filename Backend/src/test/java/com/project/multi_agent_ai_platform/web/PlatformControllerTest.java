@@ -25,6 +25,8 @@ import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
 import com.project.multi_agent_ai_platform.config.PlatformProperties;
+import com.project.multi_agent_ai_platform.document.DocumentStore;
+import com.project.multi_agent_ai_platform.document.FakeDocumentStore;
 
 @WebMvcTest(PlatformController.class)
 @Import(PlatformControllerTest.ProviderConfig.class)
@@ -39,6 +41,13 @@ class PlatformControllerTest {
 		@Bean
 		LlmProvider llmProvider() {
 			return LlmProvider.gemini("gemini-test", KEY);
+		}
+
+		@Bean
+		DocumentStore documentStore() {
+			FakeDocumentStore store = new FakeDocumentStore();
+			store.save("a.txt", "text/plain", "a", null);
+			return store;
 		}
 	}
 
@@ -77,9 +86,9 @@ class PlatformControllerTest {
 			.andExpect(jsonPath("$.keyEnvVar").value("GEMINI_API_KEY"))
 			.andExpect(jsonPath("$.agents").value(1))
 			.andExpect(jsonPath("$.memoryMaxMessages").value(20))
-			.andExpect(jsonPath("$.documents.stored").value(0))
-			.andExpect(jsonPath("$.documents.maxStored").value(0))
-			.andExpect(jsonPath("$.documents.maxContextChars").value(0))
+			.andExpect(jsonPath("$.documents.stored").value(1))
+			.andExpect(jsonPath("$.documents.maxStored").value(50))
+			.andExpect(jsonPath("$.documents.maxContextChars").value(60000))
 			.andExpect(content().string(Matchers.not(Matchers.containsString(KEY))));
 	}
 }
