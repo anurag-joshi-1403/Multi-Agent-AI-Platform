@@ -8,7 +8,7 @@
 How to build each backend phase: [`BACKEND.md`](BACKEND.md) · How to run it: [`README.md`](README.md)
 
 [![Frontend](https://img.shields.io/badge/Frontend-ready-34d399?logo=react&logoColor=white)](#-where-things-stand)
-[![Backend](https://img.shields.io/badge/Backend-Phase%206%20of%207-fbbf24?logo=springboot&logoColor=white)](#-where-things-stand)
+[![Backend](https://img.shields.io/badge/Backend-Phase%207%20of%207-fbbf24?logo=springboot&logoColor=white)](#-where-things-stand)
 [![Security](https://img.shields.io/badge/Leaked%20key-rotate%20first-f87171)](#-do-these-next)
 [![Updated](https://img.shields.io/badge/Updated-Oct%2010%2C%202026-8b7cff)](#-where-things-stand)
 
@@ -21,12 +21,12 @@ How to build each backend phase: [`BACKEND.md`](BACKEND.md) · How to run it: [`
 | | |
 |---|---|
 | 🖥️ **Frontend** | 🟢 Finished — lint ✅ build ✅, runs on its own with **simulated** replies |
-| ⚙️ **Backend** | 🟡 5 agents on Gemini · uploads · H2 storage · **login required** · Phases 6–7 to go |
+| ⚙️ **Backend** | 🟡 5 agents · **5 AI providers with failover** · uploads · H2 storage · login · Phase 7 to go |
 | 🔐 **Login** | 🟢 Real session login · accounts from `AUTH_USERS` in `Backend/.env` (not set yet → one-time `admin` password in the log) |
-| 🧪 **Tests** | 🟡 Backend: 110 passing, no key or network needed · Frontend: none |
+| 🧪 **Tests** | 🟡 Backend: 132 passing, no key or network needed · Frontend: none |
 | 📚 **Docs** | 🟡 Behind the code — `README.md` still says there's no backend, and links to removed or missing files |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Phases 1–5 pushed to `origin/main` · working tree clean |
+| 💾 **Git** | 🟢 Phases 1–6 pushed to `origin/main` · working tree clean |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -41,9 +41,9 @@ flowchart LR
     classDef todo fill:#e5e7eb,stroke:#6b7280,color:#1f2937
     P0["🧹 0<br/>Get ready"] --> P1["🧱 1<br/>Skeleton"] --> P2["🤖 2<br/>First agent"] --> P3["🧠 3<br/>More agents<br/>+ memory"]
     P3 --> P4["📎 4<br/>Files"] --> P5["🔐 5<br/>Login"] --> P6["🔁 6<br/>Failover"] --> P7["🚀 7<br/>Launch"]
-    class P1,P2,P3,P4,P5 done
+    class P1,P2,P3,P4,P5,P6 done
     class P0 doing
-    class P6,P7 todo
+    class P7 todo
 ```
 
 | Phase | Status | Left to do |
@@ -54,7 +54,7 @@ flowchart LR
 | 🧠 **3 · More agents + memory** | 🟢 | — |
 | 📎 **4 · Files** | 🟢 | — |
 | 🔐 **5 · Login** | 🟢 | — |
-| 🔁 **6 · Failover** | 🔴 | Provider chain |
+| 🔁 **6 · Failover** | 🟢 | — |
 | 🚀 **7 · Launch & extras** | 🔴 | Streaming, Docker, CI |
 
 ---
@@ -63,8 +63,9 @@ flowchart LR
 
 1. 🔑 **Make sure the leaked keys are revoked** in Google AI Studio (`…Egng` and `…5i5w`).
 2. 👤 **Add your account** to `Backend/.env`: `AUTH_USERS=yourname:a-long-password`
-3. 🔁 **Start Phase 6**: provider failover.
-4. 📚 **Bring `README.md` up to date**: it still says any username and password gets in.
+3. 🔄 **Restart your backend**: the one running now predates failover.
+4. 🚀 **Start Phase 7**: streaming, Docker, CI and the rest.
+5. 📚 **Bring `README.md` up to date**: it still says any username and password gets in.
 
 ---
 
@@ -283,15 +284,46 @@ sequenceDiagram
 
 ### 🔁 Phase 6 — Provider failover
 
-- [ ] ➕ OpenAI + Anthropic starters (Groq and OpenRouter reuse the OpenAI one)
-- [ ] 🔗 `ProviderChain` — providers that have a key, in order; on failure, try the next one
-- [ ] 📦 `ProviderStatus` · add `providers[]` to `PlatformStatus` · `metadata.provider` = the provider that actually answered
-  (Phase 2 already sends `metadata.provider`; it's always Gemini today)
-- [ ] ⚙️ One setting: `AI_PROVIDERS=groq,openrouter,google-genai,openai,anthropic`
+- [x] ➕ OpenAI + Anthropic starters (Groq and OpenRouter use the OpenAI client at their own address)
+- [x] 🔗 `ProviderChain` — providers that have a key, in order; on any failure, the next one answers
+- [x] 🧯 `ProviderFailure` reads every SDK's errors (Gemini, OpenAI, Anthropic): bad key · busy · unreachable · rejected
+- [x] 📦 `ProviderStatus` · `providers[]` in `/api/platform` · `metadata.provider` = who answered · `metadata.failedOver` = who failed first
+- [x] ⚙️ One setting: `AI_PROVIDERS` (default `groq,openrouter,google-genai,openai,anthropic`; empty = default)
+- [x] 🔑 All keys in `Backend/.env` (`GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`);
+  models via `*_MODEL`
+- [x] ⚡ Fails over fast: one retry per provider (not Spring AI's default of 10 with growing waits), 60 s timeout
+- [x] ❗ All failed → one message listing each provider's problem; none has a key → `503` *"No AI provider configured"*
+- [x] 🧪 132 tests, including startup with every key empty and with all five clients built — `./mvnw test` 🟢
+- [x] 💾 Committed and pushed: `6440093`
 
-🖥️ The frontend already shows the chain in Settings, so no work is needed there.
+> 🐛 **Found on the way:** Spring AI's per-provider setup refuses to start on an empty key, so a copied `.env.example`
+> would have crashed the backend. It is switched off now; `AiConfig` builds a client only for providers that have a key.
 
-✅ **Done when** a broken first key fails over to the next provider and the Inspector names it.
+🖥️ The frontend already shows the chain in Settings, so no work was needed there.
+
+✅ **Done when** a broken first key fails over to the next provider and the Inspector names it. **Checked Oct 10:** 🟢
+
+| Check (real APIs, with your Gemini key + a fake Groq key) | Result |
+|---|---|
+| 📋 Startup log and `/api/platform` | 🟢 Groq ✅ → OpenRouter ⏭️ → Gemini ✅ → OpenAI ⏭️ → Anthropic ⏭️ |
+| 🔁 Groq rejects the fake key | 🟢 Gemini answers *"Ready."* in 2.8 s · `provider: Google Gemini` · `failedOver: [Groq rejected the key]` |
+| 💥 Every key fake | 🟢 `502` *"All AI providers failed"*, listing Groq and Gemini |
+
+```mermaid
+flowchart LR
+    Q["❓ Agent call"] --> G{"Groq<br/>has key?"}
+    G -->|no| R{"OpenRouter?"}
+    G -->|"yes: try"| GA["❌ rejected"] --> R
+    R -->|no| M{"Gemini?"}
+    M -->|"yes: try"| A["✅ Answer<br/>provider + failedOver"]
+    M -.->|"fails"| N["➡️ OpenAI → Anthropic"] -.-> E["❗ All failed: list"]
+```
+
+> ⚠️ **Not checked for real:** OpenRouter, OpenAI and Anthropic answering, and the default model names for Groq,
+> OpenRouter, OpenAI and Anthropic. Only a Gemini key was available; the others were checked to build and to fail
+> cleanly. Override a model with `GROQ_MODEL`, `OPENROUTER_MODEL`, `OPENAI_MODEL` or `ANTHROPIC_MODEL`.
+
+- [ ] 🌊 Streaming is not part of the chain yet: Phase 7 needs to add failover to streamed replies too
 
 ### 🚀 Phase 7 — Launch & extras
 
@@ -311,7 +343,8 @@ Small fixes you can do now, without the backend:
 
 - [x] ✏️ Login error said *"email or username"*; now *"Enter your username and password."*
 - [x] 💬 `client.ts` header now lists the real endpoints (auth included) and points to `BACKEND.md`
-- [ ] 🔑 The "no API key" hints name `GROQ_API_KEY`, but the backend uses `GEMINI_API_KEY`. Show `platform.keyEnvVar` instead
+- [ ] 🔑 The "no API key" hints name `GROQ_API_KEY` as the example. Fine now that Groq is first in the chain, but showing
+  `platform.keyEnvVar` would follow `AI_PROVIDERS`
   ([`App.tsx:133`](Frontend/src/App.tsx#L133), [`OverviewPage.tsx:89`](Frontend/src/pages/OverviewPage.tsx#L89))
 - [ ] 🧪 Add tests (there are none) — e.g. Vitest for `lib/` and `api/client.ts`
 - [ ] 💰 Token and cost totals per chat in the Inspector *(later)*
