@@ -1,5 +1,7 @@
 HELP.md
 target/
+# H2 database file: uploads and conversation memory
+/data/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
