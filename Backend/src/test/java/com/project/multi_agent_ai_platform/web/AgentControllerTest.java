@@ -19,9 +19,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -39,19 +37,12 @@ import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.core.InvalidAgentRequestException;
 import com.project.multi_agent_ai_platform.agent.core.UnknownAgentException;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.config.ProviderChainException;
+import com.project.multi_agent_ai_platform.config.ProviderFailure;
 
 @WebMvcTest(AgentController.class)
-@Import({ AgentControllerTest.ProviderConfig.class, SignedInWebTest.class })
+@Import(SignedInWebTest.class)
 class AgentControllerTest {
-
-	@TestConfiguration
-	static class ProviderConfig {
-
-		@Bean
-		LlmProvider llmProvider() {
-			return LlmProvider.gemini("gemini-test", "test-key-not-used");
-		}
-	}
 
 	@Autowired
 	MockMvc mvc;
@@ -195,10 +186,20 @@ class AgentControllerTest {
 			.andExpect(jsonPath("$.detail").value("The Document Agent needs at least one attached file."));
 	}
 
+	// --- AI provider failures arrive from the ProviderChain ----------------------------------
+
+	private static final LlmProvider GEMINI = LlmProvider.gemini("gemini-test", "k");
+
+	private static final LlmProvider GROQ = LlmProvider.of("groq", "Groq", "GROQ_API_KEY", "llama", "k");
+
+	private void providersFail(ProviderFailure... failures) {
+		when(orchestrator.dispatch(eq("general"), any())).thenThrow(new ProviderChainException(List.of(failures)));
+	}
+
 	@Test
 	void geminiInvalidKeyIs502WithHint() throws Exception {
-		when(orchestrator.dispatch(eq("general"), any()))
-			.thenThrow(new ApiException(400, "INVALID_ARGUMENT", "API key not valid. Please pass a valid API key."));
+		providersFail(ProviderFailure.of(GEMINI,
+				new ApiException(400, "INVALID_ARGUMENT", "API key not valid. Please pass a valid API key.")));
 
 		run("general", "{\"message\":\"hello\"}")
 			.andExpect(status().isBadGateway())
@@ -207,10 +208,10 @@ class AgentControllerTest {
 	}
 
 	@Test
-	void geminiErrorWrappedBySpringAiIsStillMapped() throws Exception {
-		when(orchestrator.dispatch(eq("general"), any()))
-			.thenThrow(new RuntimeException("Failed to generate content",
-					new ApiException(400, "INVALID_ARGUMENT", "API key not valid. Please pass a valid API key.")));
+	void chainFailureWrappedByAnotherLayerIsStillMapped() throws Exception {
+		when(orchestrator.dispatch(eq("general"), any())).thenThrow(new RuntimeException("advisor failed",
+				new ProviderChainException(List.of(ProviderFailure.of(GEMINI,
+						new ApiException(400, "INVALID_ARGUMENT", "API key not valid."))))));
 
 		run("general", "{\"message\":\"hello\"}")
 			.andExpect(status().isBadGateway())
@@ -219,8 +220,7 @@ class AgentControllerTest {
 
 	@Test
 	void geminiOverloadedOrRateLimitedIs503() throws Exception {
-		when(orchestrator.dispatch(eq("general"), any()))
-			.thenThrow(new ApiException(429, "RESOURCE_EXHAUSTED", "Quota exceeded."));
+		providersFail(ProviderFailure.of(GEMINI, new ApiException(429, "RESOURCE_EXHAUSTED", "Quota exceeded.")));
 
 		run("general", "{\"message\":\"hello\"}")
 			.andExpect(status().isServiceUnavailable())
@@ -230,8 +230,8 @@ class AgentControllerTest {
 
 	@Test
 	void geminiOtherRejectionIs502WithItsFirstLine() throws Exception {
-		when(orchestrator.dispatch(eq("general"), any()))
-			.thenThrow(new ApiException(404, "NOT_FOUND", "models/nope is not found.\nmore detail"));
+		providersFail(ProviderFailure.of(GEMINI,
+				new ApiException(404, "NOT_FOUND", "models/nope is not found.\nmore detail")));
 
 		run("general", "{\"message\":\"hello\"}")
 			.andExpect(status().isBadGateway())
@@ -240,12 +240,42 @@ class AgentControllerTest {
 
 	@Test
 	void geminiUnreachableIs502() throws Exception {
-		when(orchestrator.dispatch(eq("general"), any()))
-			.thenThrow(new GenAiIOException("connect timed out"));
+		providersFail(ProviderFailure.of(GEMINI, new GenAiIOException("connect timed out")));
 
 		run("general", "{\"message\":\"hello\"}")
 			.andExpect(status().isBadGateway())
 			.andExpect(jsonPath("$.title").value("LLM provider unreachable"));
+	}
+
+	@Test
+	void severalFailedProvidersAreAllListed() throws Exception {
+		providersFail(ProviderFailure.of(GROQ, new IllegalStateException("401 Unauthorized")),
+				ProviderFailure.of(GEMINI, new ApiException(429, "RESOURCE_EXHAUSTED", "Quota exceeded.")));
+
+		run("general", "{\"message\":\"hello\"}")
+			.andExpect(status().isBadGateway())
+			.andExpect(jsonPath("$.title").value("All AI providers failed"))
+			.andExpect(jsonPath("$.detail").value(containsString("Groq failed: 401 Unauthorized")))
+			.andExpect(jsonPath("$.detail").value(containsString("Google Gemini is rate-limiting")))
+			.andExpect(jsonPath("$.failures.length()").value(2));
+	}
+
+	@Test
+	void severalProvidersAllBusyIs503() throws Exception {
+		providersFail(ProviderFailure.of(GROQ, new GenAiIOException("timeout")),
+				ProviderFailure.of(GEMINI, new ApiException(503, "UNAVAILABLE", "overloaded")));
+
+		run("general", "{\"message\":\"hello\"}").andExpect(status().isServiceUnavailable());
+	}
+
+	@Test
+	void noProviderWithAKeyIs503WithHint() throws Exception {
+		providersFail();
+
+		run("general", "{\"message\":\"hello\"}")
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.title").value("No AI provider configured"))
+			.andExpect(jsonPath("$.detail").value(containsString("Backend/.env")));
 	}
 
 	@Test

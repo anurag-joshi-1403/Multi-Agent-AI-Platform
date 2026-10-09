@@ -24,8 +24,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import com.jayway.jsonpath.JsonPath;
-import com.project.multi_agent_ai_platform.agent.llm.StubChatModel;
-import com.project.multi_agent_ai_platform.config.LlmProvider;
 import com.project.multi_agent_ai_platform.document.DocumentStore;
 import com.project.multi_agent_ai_platform.document.DocumentTextExtractor;
 import com.project.multi_agent_ai_platform.document.FakeDocumentStore;
@@ -37,11 +35,6 @@ class DocumentControllerTest {
 
 	@TestConfiguration
 	static class Config {
-
-		@Bean
-		LlmProvider llmProvider() {
-			return StubChatModel.provider();
-		}
 
 		@Bean
 		DocumentStore documentStore() {

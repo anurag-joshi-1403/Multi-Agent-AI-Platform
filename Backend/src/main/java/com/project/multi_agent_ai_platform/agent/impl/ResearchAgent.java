@@ -14,7 +14,6 @@ import org.springframework.stereotype.Component;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
-import com.project.multi_agent_ai_platform.config.LlmProvider;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 
 /**
@@ -37,9 +36,8 @@ public class ResearchAgent extends LlmAgent {
 	private static final Pattern CONFIDENCE = Pattern
 		.compile("confidence(?:\\s+level)?[*_:#\\s\\-\\u2013\\u2014]*(high|medium|low)\\b", Pattern.CASE_INSENSITIVE);
 
-	public ResearchAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments,
-			LlmProvider provider) {
-		super(builder, chatMemory, attachments, provider, SYSTEM_PROMPT);
+	public ResearchAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments) {
+		super(builder, chatMemory, attachments, SYSTEM_PROMPT);
 	}
 
 	@Override

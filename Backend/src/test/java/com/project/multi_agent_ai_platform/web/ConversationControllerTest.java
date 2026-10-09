@@ -19,7 +19,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.project.multi_agent_ai_platform.agent.llm.StubChatModel;
-import com.project.multi_agent_ai_platform.config.LlmProvider;
 
 @WebMvcTest(ConversationController.class)
 @Import({ ConversationControllerTest.Config.class, SignedInWebTest.class })
@@ -27,11 +26,6 @@ class ConversationControllerTest {
 
 	@TestConfiguration
 	static class Config {
-
-		@Bean
-		LlmProvider llmProvider() {
-			return StubChatModel.provider();
-		}
 
 		@Bean
 		ChatMemory chatMemory() {

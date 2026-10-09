@@ -18,8 +18,7 @@ class LlmProviderTest {
 	}
 
 	@Test
-	void placeholderBlankOrMissingKeyIsNotConfigured() {
-		assertThat(LlmProvider.gemini("m", LlmProvider.MISSING_API_KEY).apiKeyConfigured()).isFalse();
+	void blankOrMissingKeyIsNotConfigured() {
 		assertThat(LlmProvider.gemini("m", "  ").apiKeyConfigured()).isFalse();
 		assertThat(LlmProvider.gemini("m", null).apiKeyConfigured()).isFalse();
 	}

@@ -22,7 +22,7 @@ class DocumentAgentTest {
 	private final FakeDocumentStore store = new FakeDocumentStore();
 
 	private final DocumentAgent agent = new DocumentAgent(model.clientBuilder(), StubChatModel.memory(),
-			StubChatModel.attachments(store), StubChatModel.provider());
+			StubChatModel.attachments(store));
 
 	@Test
 	void describesItself() {

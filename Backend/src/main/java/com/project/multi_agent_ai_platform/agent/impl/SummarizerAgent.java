@@ -13,7 +13,6 @@ import com.project.multi_agent_ai_platform.agent.core.AgentParameter;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
-import com.project.multi_agent_ai_platform.config.LlmProvider;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 import com.project.multi_agent_ai_platform.document.StoredDocument;
 
@@ -35,9 +34,8 @@ public class SummarizerAgent extends LlmAgent {
 	/** Below this a summary stops being useful, whatever the caller asks for. */
 	static final int MIN_WORDS = 20;
 
-	public SummarizerAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments,
-			LlmProvider provider) {
-		super(builder, chatMemory, attachments, provider, SYSTEM_PROMPT);
+	public SummarizerAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments) {
+		super(builder, chatMemory, attachments, SYSTEM_PROMPT);
 	}
 
 	@Override

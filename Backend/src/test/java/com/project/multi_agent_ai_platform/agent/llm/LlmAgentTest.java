@@ -7,15 +7,19 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
+import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.config.ProviderChain;
 import com.project.multi_agent_ai_platform.document.FakeDocumentStore;
 import com.project.multi_agent_ai_platform.document.StoredDocument;
 
@@ -28,9 +32,8 @@ class LlmAgentTest {
 	private final FakeDocumentStore store = new FakeDocumentStore();
 
 	/** Smallest possible concrete agent for exercising the base class. */
-	private LlmAgent agent(StubChatModel model, ChatMemory memory, String systemPrompt) {
-		return new LlmAgent(model.clientBuilder(), memory, StubChatModel.attachments(store), StubChatModel.provider(),
-				systemPrompt) {
+	private LlmAgent agent(ChatModel model, ChatMemory memory, String systemPrompt) {
+		return new LlmAgent(ChatClient.builder(model), memory, StubChatModel.attachments(store), systemPrompt) {
 			@Override
 			public String id() {
 				return "test";
@@ -62,8 +65,9 @@ class LlmAgentTest {
 	@Test
 	void sendsSystemPromptAndMessageAndReturnsProviderMetadata() {
 		model.reply = "hello back";
+		ProviderChain chain = new ProviderChain(List.of(new ProviderChain.Link(StubChatModel.provider(), model)));
 
-		AgentResponse response = agent(model, memory, "You are a test.").handle(new AgentRequest("c-1", "hi", Map.of()));
+		AgentResponse response = agent(chain, memory, "You are a test.").handle(new AgentRequest("c-1", "hi", Map.of()));
 
 		assertThat(response.content()).isEqualTo("hello back");
 		assertThat(response.metadata())
@@ -77,7 +81,26 @@ class LlmAgentTest {
 	}
 
 	@Test
-	void fallsBackToConfiguredModelWhenProviderReportsNone() {
+	void reportsTheProvidersThatFailedBeforeTheAnswer() {
+		StubChatModel down = new StubChatModel() {
+			@Override
+			public ChatResponse call(Prompt prompt) {
+				throw new IllegalStateException("connection reset");
+			}
+		};
+		LlmProvider groq = LlmProvider.of("groq", "Groq", "GROQ_API_KEY", "llama", "k");
+		ProviderChain chain = new ProviderChain(
+				List.of(new ProviderChain.Link(groq, down), new ProviderChain.Link(StubChatModel.provider(), model)));
+
+		AgentResponse response = agent(chain, memory, "sys").handle(AgentRequest.of("hi"));
+
+		assertThat(response.metadata())
+			.containsEntry("provider", "Google Gemini")
+			.containsEntry("failedOver", List.of("Groq failed: connection reset"));
+	}
+
+	@Test
+	void inventsNothingTheProviderDidNotReport() {
 		StubChatModel silent = new StubChatModel() {
 			@Override
 			public ChatResponse call(Prompt prompt) {
@@ -92,9 +115,7 @@ class LlmAgentTest {
 		AgentResponse response = agent(silent, memory, "sys").handle(AgentRequest.of("hi"));
 
 		assertThat(response.metadata())
-			.containsEntry("model", "gemini-test")
-			.doesNotContainKey("tokens")
-			.doesNotContainKey("conversationId");
+			.doesNotContainKeys("provider", "model", "tokens", "failedOver", "conversationId");
 	}
 
 	// --- memory ------------------------------------------------------------------------------

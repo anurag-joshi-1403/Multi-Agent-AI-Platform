@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
-import com.project.multi_agent_ai_platform.config.LlmProvider;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 
 /** Fallback conversational agent for anything the specialists do not cover. */
@@ -21,9 +20,8 @@ public class GeneralAgent extends LlmAgent {
 			when the request is genuinely ambiguous. Keep answers as short as the question allows.
 			""";
 
-	public GeneralAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments,
-			LlmProvider provider) {
-		super(builder, chatMemory, attachments, provider, SYSTEM_PROMPT);
+	public GeneralAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments) {
+		super(builder, chatMemory, attachments, SYSTEM_PROMPT);
 	}
 
 	@Override

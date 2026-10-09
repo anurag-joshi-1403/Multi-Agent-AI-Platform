@@ -12,7 +12,6 @@ import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.core.InvalidAgentRequestException;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
-import com.project.multi_agent_ai_platform.config.LlmProvider;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 import com.project.multi_agent_ai_platform.document.StoredDocument;
 
@@ -31,9 +30,8 @@ public class DocumentAgent extends LlmAgent {
 			- Be concise.
 			""";
 
-	public DocumentAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments,
-			LlmProvider provider) {
-		super(builder, chatMemory, attachments, provider, SYSTEM_PROMPT);
+	public DocumentAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments) {
+		super(builder, chatMemory, attachments, SYSTEM_PROMPT);
 	}
 
 	@Override

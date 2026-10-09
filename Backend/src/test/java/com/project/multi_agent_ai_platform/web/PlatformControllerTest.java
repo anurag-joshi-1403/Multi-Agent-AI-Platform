@@ -23,8 +23,10 @@ import com.project.multi_agent_ai_platform.agent.core.Agent;
 import com.project.multi_agent_ai_platform.agent.core.AgentRegistry;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
+import com.project.multi_agent_ai_platform.agent.llm.StubChatModel;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
 import com.project.multi_agent_ai_platform.config.PlatformProperties;
+import com.project.multi_agent_ai_platform.config.ProviderChain;
 import com.project.multi_agent_ai_platform.document.DocumentStore;
 import com.project.multi_agent_ai_platform.document.FakeDocumentStore;
 
@@ -38,9 +40,12 @@ class PlatformControllerTest {
 	@TestConfiguration
 	static class ProviderConfig {
 
+		/** Groq first but without a key, so Gemini is the provider actually tried first. */
 		@Bean
-		LlmProvider llmProvider() {
-			return LlmProvider.gemini("gemini-test", KEY);
+		ProviderChain providerChain() {
+			return new ProviderChain(List.of(
+					new ProviderChain.Link(LlmProvider.of("groq", "Groq", "GROQ_API_KEY", "llama", ""), null),
+					new ProviderChain.Link(LlmProvider.gemini("gemini-test", KEY), new StubChatModel())));
 		}
 
 		@Bean
@@ -89,6 +94,14 @@ class PlatformControllerTest {
 			.andExpect(jsonPath("$.documents.stored").value(1))
 			.andExpect(jsonPath("$.documents.maxStored").value(50))
 			.andExpect(jsonPath("$.documents.maxContextChars").value(60000))
+			.andExpect(jsonPath("$.providers.length()").value(2))
+			.andExpect(jsonPath("$.providers[0].provider").value("groq"))
+			.andExpect(jsonPath("$.providers[0].providerName").value("Groq"))
+			.andExpect(jsonPath("$.providers[0].model").value("llama"))
+			.andExpect(jsonPath("$.providers[0].active").value(false))
+			.andExpect(jsonPath("$.providers[0].keyEnvVar").value("GROQ_API_KEY"))
+			.andExpect(jsonPath("$.providers[1].provider").value("google-genai"))
+			.andExpect(jsonPath("$.providers[1].active").value(true))
 			.andExpect(content().string(Matchers.not(Matchers.containsString(KEY))));
 	}
 }

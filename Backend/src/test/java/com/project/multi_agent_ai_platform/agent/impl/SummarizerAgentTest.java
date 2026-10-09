@@ -23,7 +23,7 @@ class SummarizerAgentTest {
 	private final FakeDocumentStore store = new FakeDocumentStore();
 
 	private final SummarizerAgent agent = new SummarizerAgent(model.clientBuilder(), StubChatModel.memory(),
-			StubChatModel.attachments(store), StubChatModel.provider());
+			StubChatModel.attachments(store));
 
 	@Test
 	void describesItselfWithStyleAndMaxWords() {

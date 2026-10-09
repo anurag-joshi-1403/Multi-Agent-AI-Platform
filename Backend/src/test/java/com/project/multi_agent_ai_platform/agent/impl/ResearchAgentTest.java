@@ -13,7 +13,7 @@ class ResearchAgentTest {
 	private final StubChatModel model = new StubChatModel();
 
 	private final ResearchAgent agent = new ResearchAgent(model.clientBuilder(), StubChatModel.memory(),
-			StubChatModel.noAttachments(), StubChatModel.provider());
+			StubChatModel.noAttachments());
 
 	@Test
 	void describesItself() {

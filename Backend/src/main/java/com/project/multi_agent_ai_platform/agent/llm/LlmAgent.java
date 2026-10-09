@@ -16,7 +16,7 @@ import org.springframework.ai.chat.model.Generation;
 
 import com.project.multi_agent_ai_platform.agent.core.Agent;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
-import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.config.ProviderChain;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 import com.project.multi_agent_ai_platform.document.StoredDocument;
 
@@ -24,8 +24,9 @@ import com.project.multi_agent_ai_platform.document.StoredDocument;
  * Base class for agents that answer by calling the chat model.
  * <p>
  * Each subclass owns one {@link ChatClient} pre-loaded with its system prompt, and gets back the
- * model's text plus the facts the console's Inspector shows: provider, model, token usage and
- * finish reason.
+ * model's text plus the facts the console's Inspector shows: which provider answered (and which
+ * failed first), model, token usage and finish reason. The {@link ProviderChain} behind the
+ * {@code ChatClient} decides which provider that is.
  * <p>
  * Conversation memory is attached per call, and only when the request carries a
  * {@code conversationId}, so single-shot calls never leak into a shared default conversation.
@@ -43,18 +44,15 @@ public abstract class LlmAgent implements Agent {
 
 	private final AttachmentResolver attachments;
 
-	private final LlmProvider provider;
-
 	private final String systemPrompt;
 
 	protected LlmAgent(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory, AttachmentResolver attachments,
-			LlmProvider provider, String systemPrompt) {
+			String systemPrompt) {
 		// clone(): the builder may be shared, and defaultSystem would otherwise leak into other agents
 		this.chatClient = chatClientBuilder.clone().defaultSystem(systemPrompt).build();
 		this.chatMemory = chatMemory;
 		this.memoryAdvisor = MessageChatMemoryAdvisor.builder(chatMemory).build();
 		this.attachments = attachments;
-		this.provider = provider;
 		this.systemPrompt = systemPrompt;
 	}
 
@@ -121,11 +119,9 @@ public abstract class LlmAgent implements Agent {
 		return id == null || id.isBlank() ? null : id;
 	}
 
-	private Completion toCompletion(ChatResponse response, AgentRequest request) {
+	private static Completion toCompletion(ChatResponse response, AgentRequest request) {
 		// AgentResponse copies this with Map.copyOf, which rejects null values: only add what is present.
 		Map<String, Object> metadata = new LinkedHashMap<>();
-		metadata.put("provider", provider.displayName());
-		metadata.put("model", provider.model());
 		if (request.conversationId() != null) {
 			metadata.put("conversationId", request.conversationId());
 		}
@@ -142,9 +138,14 @@ public abstract class LlmAgent implements Agent {
 			}
 			ChatResponseMetadata meta = response.getMetadata();
 			if (meta != null) {
-				// the model that actually answered, when the provider reports one
+				if (meta.get(ProviderChain.PROVIDER) instanceof String provider) {
+					metadata.put("provider", provider);
+				}
 				if (meta.getModel() != null && !meta.getModel().isBlank()) {
 					metadata.put("model", meta.getModel());
+				}
+				if (meta.get(ProviderChain.FAILED_OVER) instanceof List<?> failedOver && !failedOver.isEmpty()) {
+					metadata.put("failedOver", failedOver);
 				}
 				Usage usage = meta.getUsage();
 				if (usage != null && usage.getTotalTokens() != null && usage.getTotalTokens() > 0) {

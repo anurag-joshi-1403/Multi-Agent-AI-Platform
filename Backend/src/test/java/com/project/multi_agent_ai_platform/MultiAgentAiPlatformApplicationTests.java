@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import com.project.multi_agent_ai_platform.agent.core.Agent;
 import com.project.multi_agent_ai_platform.agent.core.AgentRegistry;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.config.ProviderChain;
 import com.project.multi_agent_ai_platform.config.PlatformProperties;
 import com.project.multi_agent_ai_platform.document.DocumentStore;
 import com.project.multi_agent_ai_platform.document.JdbcDocumentStore;
@@ -24,7 +25,7 @@ class MultiAgentAiPlatformApplicationTests {
 	AgentRegistry registry;
 
 	@Autowired
-	LlmProvider provider;
+	ProviderChain chain;
 
 	@Autowired
 	PlatformProperties properties;
@@ -66,9 +67,18 @@ class MultiAgentAiPlatformApplicationTests {
 	}
 
 	@Test
+	void theChainListsEveryProviderInDefaultOrderWithOnlyKeyedOnesActive() {
+		assertThat(chain.providers()).extracting(LlmProvider::id)
+			.containsExactly("groq", "openrouter", "google-genai", "openai", "anthropic");
+		assertThat(chain.providers()).filteredOn(LlmProvider::apiKeyConfigured)
+			.extracting(LlmProvider::id)
+			.containsExactly("google-genai");
+	}
+
+	@Test
 	void testsUseTheTestConfigNeverBackendEnv() {
 		// gemini-test only exists in src/test/resources/application.properties
-		assertThat(provider.model()).isEqualTo("gemini-test");
+		assertThat(chain.primary().model()).isEqualTo("gemini-test");
 	}
 
 	private Integer countOf(String table) {

@@ -48,10 +48,19 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
-		<!-- Google Gemini chat model + ChatClient. More providers arrive in Phase 6. -->
+		<!-- AI providers. ProviderChain tries the ones that have a key, in AI_PROVIDERS order.
+		     Groq and OpenRouter speak the OpenAI API, so the OpenAI starter covers them too. -->
 		<dependency>
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-starter-model-google-genai</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-model-openai</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-model-anthropic</artifactId>
 		</dependency>
 		<!-- Storage: JdbcClient over an H2 file, for uploaded documents and conversation memory -->
 		<dependency>
