@@ -2,6 +2,7 @@ package com.project.multi_agent_ai_platform.agent.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,8 @@ import com.project.multi_agent_ai_platform.agent.core.AgentParameter;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.StubChatModel;
+import com.project.multi_agent_ai_platform.document.FakeDocumentStore;
+import com.project.multi_agent_ai_platform.document.StoredDocument;
 
 class SummarizerAgentTest {
 
@@ -17,8 +20,10 @@ class SummarizerAgentTest {
 
 	private final StubChatModel model = new StubChatModel();
 
+	private final FakeDocumentStore store = new FakeDocumentStore();
+
 	private final SummarizerAgent agent = new SummarizerAgent(model.clientBuilder(), StubChatModel.memory(),
-			StubChatModel.provider());
+			StubChatModel.attachments(store), StubChatModel.provider());
 
 	@Test
 	void describesItselfWithStyleAndMaxWords() {
@@ -65,6 +70,22 @@ class SummarizerAgentTest {
 		AgentResponse response = agent.handle(new AgentRequest(null, TEXT, Map.of("maxWords", 3)));
 
 		assertThat(response.metadata()).containsEntry("maxWords", SummarizerAgent.MIN_WORDS);
+	}
+
+	@Test
+	void withAFileAttachedTheFileIsTheInputAndTheMessageSteersIt() {
+		StoredDocument doc = store.save("report.txt", "text/plain", TEXT, null);
+
+		AgentResponse response = agent.handle(new AgentRequest(null, "focus on revenue",
+				Map.of("attachments", List.of(doc.id()), "style", "tldr")));
+
+		String sent = model.lastPrompt().getUserMessage().getText();
+		assertThat(sent).startsWith("Write a single-paragraph TL;DR")
+			.contains("Summarise the attached file(s)")
+			.contains("focus on revenue")
+			.doesNotContain("Text to summarise");
+		assertThat(model.lastPrompt().getSystemMessage().getText()).contains("--- FILE: report.txt ---");
+		assertThat(response.metadata()).containsEntry("inputChars", TEXT.length());
 	}
 
 	@Test

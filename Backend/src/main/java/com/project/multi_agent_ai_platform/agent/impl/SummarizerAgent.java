@@ -14,10 +14,13 @@ import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.document.AttachmentResolver;
+import com.project.multi_agent_ai_platform.document.StoredDocument;
 
 /**
- * Condenses text. Attributes: {@code style} = {@code bullets} (default) | {@code tldr} |
- * {@code executive}; {@code maxWords} caps the summary length.
+ * Condenses text: the message itself, or the attached files when there are any. Attributes:
+ * {@code style} = {@code bullets} (default) | {@code tldr} | {@code executive}; {@code maxWords}
+ * caps the summary length.
  */
 @Component
 public class SummarizerAgent extends LlmAgent {
@@ -32,8 +35,9 @@ public class SummarizerAgent extends LlmAgent {
 	/** Below this a summary stops being useful, whatever the caller asks for. */
 	static final int MIN_WORDS = 20;
 
-	public SummarizerAgent(ChatClient.Builder builder, ChatMemory chatMemory, LlmProvider provider) {
-		super(builder, chatMemory, provider, SYSTEM_PROMPT);
+	public SummarizerAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments,
+			LlmProvider provider) {
+		super(builder, chatMemory, attachments, provider, SYSTEM_PROMPT);
 	}
 
 	@Override
@@ -72,16 +76,29 @@ public class SummarizerAgent extends LlmAgent {
 			default -> "Write 3-7 bullet points, most important first. At most " + maxWords + " words in total.";
 		};
 
+		// With files attached, the message is usually "summarise this", so the files are the input and
+		// the message only steers the summary. Without files, the message is the text itself.
+		List<StoredDocument> attached = attached(request);
 		String delimiter = "\"\"\"";
-		Completion completion = complete(request,
-				instruction + "\n\nText to summarise:\n" + delimiter + "\n" + request.message() + "\n" + delimiter);
+		String prompt;
+		int inputChars;
+		if (attached.isEmpty()) {
+			prompt = instruction + "\n\nText to summarise:\n" + delimiter + "\n" + request.message() + "\n" + delimiter;
+			inputChars = request.message().length();
+		}
+		else {
+			prompt = instruction + "\n\nSummarise the attached file(s). The user's request:\n" + delimiter + "\n"
+					+ request.message() + "\n" + delimiter;
+			inputChars = attached.stream().mapToInt(doc -> doc.content().length()).sum();
+		}
+		Completion completion = complete(request, prompt, attached);
 
 		Map<String, Object> metadata = new LinkedHashMap<>(completion.metadata());
 		metadata.put("style", style);
 		metadata.put("maxWords", maxWords);
-		metadata.put("inputChars", request.message().length());
-		if (!completion.content().isEmpty()) {
-			double ratio = (double) completion.content().length() / request.message().length();
+		metadata.put("inputChars", inputChars);
+		if (!completion.content().isEmpty() && inputChars > 0) {
+			double ratio = (double) completion.content().length() / inputChars;
 			metadata.put("compressionRatio", Math.round(ratio * 100.0) / 100.0);
 		}
 		return new AgentResponse(id(), completion.content(), metadata);

@@ -16,6 +16,8 @@ import org.springframework.ai.chat.prompt.Prompt;
 
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
+import com.project.multi_agent_ai_platform.document.FakeDocumentStore;
+import com.project.multi_agent_ai_platform.document.StoredDocument;
 
 class LlmAgentTest {
 
@@ -23,9 +25,12 @@ class LlmAgentTest {
 
 	private final ChatMemory memory = StubChatModel.memory();
 
+	private final FakeDocumentStore store = new FakeDocumentStore();
+
 	/** Smallest possible concrete agent for exercising the base class. */
-	private static LlmAgent agent(StubChatModel model, ChatMemory memory, String systemPrompt) {
-		return new LlmAgent(model.clientBuilder(), memory, StubChatModel.provider(), systemPrompt) {
+	private LlmAgent agent(StubChatModel model, ChatMemory memory, String systemPrompt) {
+		return new LlmAgent(model.clientBuilder(), memory, StubChatModel.attachments(store), StubChatModel.provider(),
+				systemPrompt) {
 			@Override
 			public String id() {
 				return "test";
@@ -173,6 +178,46 @@ class LlmAgentTest {
 		assertThatThrownBy(() -> agent(failing, memory, "sys").handle(new AgentRequest("conv-y", "hi", Map.of())))
 			.isInstanceOf(IllegalStateException.class);
 		assertThat(memory.get("conv-y")).isEmpty();
+	}
+
+	// --- attached files ----------------------------------------------------------------------
+
+	private static AgentRequest withFiles(String conversationId, String message, StoredDocument... docs) {
+		return new AgentRequest(conversationId, message,
+				Map.of("attachments", java.util.Arrays.stream(docs).map(StoredDocument::id).toList()));
+	}
+
+	@Test
+	void attachedFilesRideInTheSystemPromptAndAreNamedInTheMetadata() {
+		StoredDocument doc = store.save("notes.txt", "text/plain", "The launch is on 3 March.", null);
+
+		AgentResponse response = agent().handle(withFiles(null, "When is the launch?", doc));
+
+		assertThat(model.lastPrompt().getSystemMessage().getText())
+			.startsWith("sys")
+			.contains("--- FILE: notes.txt ---")
+			.contains("The launch is on 3 March.");
+		assertThat(model.lastPrompt().getUserMessage().getText()).isEqualTo("When is the launch?");
+		assertThat(response.metadata()).containsEntry("documentNames", List.of("notes.txt"));
+	}
+
+	@Test
+	void fileTextNeverEntersConversationMemory() {
+		StoredDocument doc = store.save("secret-plan.txt", "text/plain", "TOP SECRET CONTENT", null);
+
+		agent().handle(withFiles("conv-f", "summarise it", doc));
+
+		assertThat(memory.get("conv-f")).extracting(Message::getText)
+			.containsExactly("summarise it", "stub reply")
+			.noneMatch(text -> text.contains("TOP SECRET CONTENT"));
+	}
+
+	@Test
+	void withoutFilesTheSystemPromptIsUnchangedAndNoNamesAreReported() {
+		AgentResponse response = agent().handle(withFiles(null, "hi"));
+
+		assertThat(model.lastPrompt().getSystemMessage().getText()).isEqualTo("sys");
+		assertThat(response.metadata()).doesNotContainKey("documentNames");
 	}
 
 	// --- attribute helpers -------------------------------------------------------------------

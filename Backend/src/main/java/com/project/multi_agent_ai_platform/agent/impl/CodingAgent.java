@@ -16,6 +16,7 @@ import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 
 /** Writes, explains and refactors code. Honours an optional {@code language} attribute. */
 @Component
@@ -36,8 +37,9 @@ public class CodingAgent extends LlmAgent {
 
 	private static final Pattern FENCE = Pattern.compile("```([A-Za-z0-9+#._-]+)");
 
-	public CodingAgent(ChatClient.Builder builder, ChatMemory chatMemory, LlmProvider provider) {
-		super(builder, chatMemory, provider, SYSTEM_PROMPT);
+	public CodingAgent(ChatClient.Builder builder, ChatMemory chatMemory, AttachmentResolver attachments,
+			LlmProvider provider) {
+		super(builder, chatMemory, attachments, provider, SYSTEM_PROMPT);
 	}
 
 	@Override

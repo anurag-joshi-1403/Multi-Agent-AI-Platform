@@ -14,6 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import com.google.genai.errors.ApiException;
 import com.google.genai.errors.GenAiIOException;
+import com.project.multi_agent_ai_platform.agent.core.InvalidAgentRequestException;
 import com.project.multi_agent_ai_platform.agent.core.UnknownAgentException;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
 import com.project.multi_agent_ai_platform.document.UnsupportedDocumentException;
@@ -43,8 +44,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 		return problem;
 	}
 
-	@ExceptionHandler(IllegalArgumentException.class)
-	ProblemDetail badRequest(IllegalArgumentException ex) {
+	@ExceptionHandler({ InvalidAgentRequestException.class, IllegalArgumentException.class })
+	ProblemDetail badRequest(RuntimeException ex) {
 		return problem(HttpStatus.BAD_REQUEST, "Invalid request", ex.getMessage());
 	}
 

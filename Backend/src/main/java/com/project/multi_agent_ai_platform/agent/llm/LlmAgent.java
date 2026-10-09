@@ -17,6 +17,8 @@ import org.springframework.ai.chat.model.Generation;
 import com.project.multi_agent_ai_platform.agent.core.Agent;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.document.AttachmentResolver;
+import com.project.multi_agent_ai_platform.document.StoredDocument;
 
 /**
  * Base class for agents that answer by calling the chat model.
@@ -27,6 +29,9 @@ import com.project.multi_agent_ai_platform.config.LlmProvider;
  * <p>
  * Conversation memory is attached per call, and only when the request carries a
  * {@code conversationId}, so single-shot calls never leak into a shared default conversation.
+ * <p>
+ * Files the caller attached are appended to the system prompt of every call, so any agent can
+ * answer about them, and their text never enters conversation memory.
  */
 public abstract class LlmAgent implements Agent {
 
@@ -36,15 +41,26 @@ public abstract class LlmAgent implements Agent {
 
 	private final MessageChatMemoryAdvisor memoryAdvisor;
 
+	private final AttachmentResolver attachments;
+
 	private final LlmProvider provider;
 
-	protected LlmAgent(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory, LlmProvider provider,
-			String systemPrompt) {
+	private final String systemPrompt;
+
+	protected LlmAgent(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory, AttachmentResolver attachments,
+			LlmProvider provider, String systemPrompt) {
 		// clone(): the builder may be shared, and defaultSystem would otherwise leak into other agents
 		this.chatClient = chatClientBuilder.clone().defaultSystem(systemPrompt).build();
 		this.chatMemory = chatMemory;
 		this.memoryAdvisor = MessageChatMemoryAdvisor.builder(chatMemory).build();
+		this.attachments = attachments;
 		this.provider = provider;
+		this.systemPrompt = systemPrompt;
+	}
+
+	/** Files attached to this request, in request order; ids the store no longer holds are skipped. */
+	protected final List<StoredDocument> attached(AgentRequest request) {
+		return attachments.resolve(request);
 	}
 
 	/** What the model said plus provider facts. */
@@ -52,18 +68,32 @@ public abstract class LlmAgent implements Agent {
 	}
 
 	/**
-	 * Send {@code userMessage} with the agent's system prompt, replaying the conversation's earlier
-	 * turns when the request has a {@code conversationId}. Provider errors propagate.
+	 * Send {@code userMessage} with the agent's system prompt plus the request's attached files,
+	 * replaying the conversation's earlier turns when the request has a {@code conversationId}.
+	 * Provider errors propagate.
 	 */
 	protected final Completion complete(AgentRequest request, String userMessage) {
+		return complete(request, userMessage, attached(request));
+	}
+
+	/** As {@link #complete(AgentRequest, String)}, for agents that already resolved the attachments. */
+	protected final Completion complete(AgentRequest request, String userMessage, List<StoredDocument> attached) {
 		ChatClient.ChatClientRequestSpec spec = chatClient.prompt();
+		String fileBlock = attachments.block(attached);
+		if (fileBlock != null) {
+			spec = spec.system(systemPrompt + fileBlock);
+		}
 		String conversationId = conversationId(request);
 		if (conversationId != null) {
 			spec = spec.advisors(memoryAdvisor).advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId));
 		}
 		try {
 			ChatResponse response = spec.user(userMessage).call().chatResponse();
-			return toCompletion(response, request);
+			Completion completion = toCompletion(response, request);
+			if (!attached.isEmpty()) {
+				completion.metadata().put("documentNames", attached.stream().map(StoredDocument::name).toList());
+			}
+			return completion;
 		}
 		catch (RuntimeException ex) {
 			// The memory advisor stores the user turn before the model is called. If the call fails,

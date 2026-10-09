@@ -17,6 +17,10 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 
 import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.config.PlatformProperties;
+import com.project.multi_agent_ai_platform.document.AttachmentResolver;
+import com.project.multi_agent_ai_platform.document.DocumentStore;
+import com.project.multi_agent_ai_platform.document.FakeDocumentStore;
 
 /**
  * A {@link ChatModel} for tests: records every prompt it receives and answers with a canned reply
@@ -60,5 +64,20 @@ public class StubChatModel implements ChatModel {
 			.chatMemoryRepository(new InMemoryChatMemoryRepository())
 			.maxMessages(20)
 			.build();
+	}
+
+	/** The platform's default settings: 20 messages of memory, 60 000 chars of file context, 50 uploads. */
+	public static PlatformProperties properties() {
+		return new PlatformProperties(new PlatformProperties.Memory(20), new PlatformProperties.Documents(60_000, 50));
+	}
+
+	/** An attachment resolver over {@code store}, with the default limits. */
+	public static AttachmentResolver attachments(DocumentStore store) {
+		return new AttachmentResolver(store, properties());
+	}
+
+	/** An attachment resolver over an empty store, for agents tested without files. */
+	public static AttachmentResolver noAttachments() {
+		return attachments(new FakeDocumentStore());
 	}
 }

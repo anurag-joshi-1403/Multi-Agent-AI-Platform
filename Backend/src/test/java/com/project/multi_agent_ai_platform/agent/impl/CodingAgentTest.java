@@ -16,7 +16,7 @@ class CodingAgentTest {
 	private final StubChatModel model = new StubChatModel();
 
 	private final CodingAgent agent = new CodingAgent(model.clientBuilder(), StubChatModel.memory(),
-			StubChatModel.provider());
+			StubChatModel.noAttachments(), StubChatModel.provider());
 
 	@Test
 	void describesItselfWithALanguageOption() {

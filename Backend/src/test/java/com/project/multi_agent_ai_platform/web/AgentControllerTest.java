@@ -36,6 +36,7 @@ import com.project.multi_agent_ai_platform.agent.core.AgentParameter;
 import com.project.multi_agent_ai_platform.agent.core.AgentRegistry;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
+import com.project.multi_agent_ai_platform.agent.core.InvalidAgentRequestException;
 import com.project.multi_agent_ai_platform.agent.core.UnknownAgentException;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
 
@@ -181,6 +182,17 @@ class AgentControllerTest {
 			.andExpect(jsonPath("$.title").value("Unknown agent"))
 			.andExpect(jsonPath("$.detail").value("No agent registered with id 'nope'"))
 			.andExpect(jsonPath("$.agentId").value("nope"));
+	}
+
+	@Test
+	void requestTheAgentCannotUseIs400WithItsReason() throws Exception {
+		when(orchestrator.dispatch(eq("document"), any()))
+			.thenThrow(new InvalidAgentRequestException("The Document Agent needs at least one attached file."));
+
+		run("document", "{\"message\":\"what does it say?\"}")
+			.andExpect(status().isBadRequest())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.detail").value("The Document Agent needs at least one attached file."));
 	}
 
 	@Test

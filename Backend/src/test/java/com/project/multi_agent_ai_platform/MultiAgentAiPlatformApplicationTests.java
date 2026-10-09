@@ -41,7 +41,7 @@ class MultiAgentAiPlatformApplicationTests {
 	@Test
 	void contextLoadsAndDiscoversTheAgents() {
 		assertThat(registry.all()).extracting(Agent::id)
-			.containsExactlyInAnyOrder("coding", "general", "research", "summarizer");
+			.containsExactlyInAnyOrder("coding", "document", "general", "research", "summarizer");
 	}
 
 	@Test

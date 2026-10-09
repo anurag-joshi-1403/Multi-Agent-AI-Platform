@@ -13,7 +13,7 @@ class GeneralAgentTest {
 	private final StubChatModel model = new StubChatModel();
 
 	private final GeneralAgent agent = new GeneralAgent(model.clientBuilder(), StubChatModel.memory(),
-			StubChatModel.provider());
+			StubChatModel.noAttachments(), StubChatModel.provider());
 
 	@Test
 	void describesItselfTheWayTheConsoleExpects() {
