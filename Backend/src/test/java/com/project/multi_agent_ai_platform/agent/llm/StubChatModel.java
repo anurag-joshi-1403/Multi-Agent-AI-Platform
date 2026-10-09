@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
+import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
@@ -49,5 +52,13 @@ public class StubChatModel implements ChatModel {
 	/** The provider description the agents would receive from {@code AiConfig}. */
 	public static LlmProvider provider() {
 		return LlmProvider.gemini("gemini-test", "test-key-not-used");
+	}
+
+	/** Fresh in-memory conversation memory, as {@code AiConfig} would provide. */
+	public static ChatMemory memory() {
+		return MessageWindowChatMemory.builder()
+			.chatMemoryRepository(new InMemoryChatMemoryRepository())
+			.maxMessages(20)
+			.build();
 	}
 }

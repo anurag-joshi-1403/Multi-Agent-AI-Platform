@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
@@ -20,9 +21,11 @@ class LlmAgentTest {
 
 	private final StubChatModel model = new StubChatModel();
 
+	private final ChatMemory memory = StubChatModel.memory();
+
 	/** Smallest possible concrete agent for exercising the base class. */
-	private static LlmAgent agent(StubChatModel model, String systemPrompt) {
-		return new LlmAgent(model.clientBuilder(), StubChatModel.provider(), systemPrompt) {
+	private static LlmAgent agent(StubChatModel model, ChatMemory memory, String systemPrompt) {
+		return new LlmAgent(model.clientBuilder(), memory, StubChatModel.provider(), systemPrompt) {
 			@Override
 			public String id() {
 				return "test";
@@ -41,11 +44,21 @@ class LlmAgentTest {
 		};
 	}
 
+	private LlmAgent agent() {
+		return agent(model, memory, "sys");
+	}
+
+	private static List<MessageType> types(Prompt prompt) {
+		return prompt.getInstructions().stream().map(Message::getMessageType).toList();
+	}
+
+	// --- one call ----------------------------------------------------------------------------
+
 	@Test
 	void sendsSystemPromptAndMessageAndReturnsProviderMetadata() {
 		model.reply = "hello back";
 
-		AgentResponse response = agent(model, "You are a test.").handle(new AgentRequest("c-1", "hi", Map.of()));
+		AgentResponse response = agent(model, memory, "You are a test.").handle(new AgentRequest("c-1", "hi", Map.of()));
 
 		assertThat(response.content()).isEqualTo("hello back");
 		assertThat(response.metadata())
@@ -56,17 +69,6 @@ class LlmAgentTest {
 			.containsEntry("tokens", Map.of("prompt", 10, "completion", 5, "total", 15));
 		assertThat(model.lastPrompt().getSystemMessage().getText()).isEqualTo("You are a test.");
 		assertThat(model.lastPrompt().getUserMessage().getText()).isEqualTo("hi");
-	}
-
-	@Test
-	void callsCarryNoHistoryUntilMemoryArrives() {
-		LlmAgent agent = agent(model, "sys");
-		agent.handle(new AgentRequest("c-1", "first", Map.of()));
-		agent.handle(new AgentRequest("c-1", "second", Map.of()));
-
-		List<Message> instructions = model.lastPrompt().getInstructions();
-		assertThat(instructions).extracting(Message::getMessageType)
-			.containsExactly(MessageType.SYSTEM, MessageType.USER);
 	}
 
 	@Test
@@ -82,7 +84,7 @@ class LlmAgentTest {
 			}
 		};
 
-		AgentResponse response = agent(silent, "sys").handle(AgentRequest.of("hi"));
+		AgentResponse response = agent(silent, memory, "sys").handle(AgentRequest.of("hi"));
 
 		assertThat(response.metadata())
 			.containsEntry("model", "gemini-test")
@@ -90,8 +92,77 @@ class LlmAgentTest {
 			.doesNotContainKey("conversationId");
 	}
 
+	// --- memory ------------------------------------------------------------------------------
+
 	@Test
-	void providerErrorsPropagate() {
+	void conversationIdReplaysEarlierTurns() {
+		LlmAgent agent = agent();
+		model.reply = "answer one";
+		agent.handle(new AgentRequest("conv-1", "first", Map.of()));
+		model.reply = "answer two";
+		agent.handle(new AgentRequest("conv-1", "second", Map.of()));
+
+		assertThat(types(model.lastPrompt()))
+			.containsExactly(MessageType.SYSTEM, MessageType.USER, MessageType.ASSISTANT, MessageType.USER);
+		assertThat(model.lastPrompt().getInstructions()).extracting(Message::getText)
+			.contains("first", "answer one", "second");
+		assertThat(memory.get("conv-1")).hasSize(4);
+	}
+
+	@Test
+	void missingOrBlankConversationIdCarriesNoHistory() {
+		// Spring AI's memory rejects blank ids outright, so they must skip memory rather than reach it
+		LlmAgent agent = agent();
+		agent.handle(AgentRequest.of("first"));
+		agent.handle(new AgentRequest("  ", "second", Map.of()));
+		agent.handle(new AgentRequest("  ", "third", Map.of()));
+
+		assertThat(types(model.lastPrompt())).containsExactly(MessageType.SYSTEM, MessageType.USER);
+	}
+
+	@Test
+	void differentConversationsDoNotShareMemory() {
+		LlmAgent agent = agent();
+		agent.handle(new AgentRequest("conv-a", "hello from a", Map.of()));
+		agent.handle(new AgentRequest("conv-b", "hello from b", Map.of()));
+
+		assertThat(model.lastPrompt().getInstructions()).extracting(Message::getText).doesNotContain("hello from a");
+	}
+
+	@Test
+	void agentsShareMemoryWithinAConversation() {
+		LlmAgent one = agent();
+		LlmAgent two = agent(model, memory, "other system prompt");
+		one.handle(new AgentRequest("conv-1", "asked agent one", Map.of()));
+		two.handle(new AgentRequest("conv-1", "asked agent two", Map.of()));
+
+		assertThat(model.lastPrompt().getSystemMessage().getText()).isEqualTo("other system prompt");
+		assertThat(model.lastPrompt().getInstructions()).extracting(Message::getText).contains("asked agent one");
+	}
+
+	@Test
+	void failedProviderCallDoesNotLeaveADanglingUserTurn() {
+		StubChatModel failing = new StubChatModel() {
+			@Override
+			public ChatResponse call(Prompt prompt) {
+				if (prompt.getUserMessage().getText().equals("boom")) {
+					throw new IllegalStateException("provider down");
+				}
+				return super.call(prompt);
+			}
+		};
+		LlmAgent flaky = agent(failing, memory, "sys");
+
+		flaky.handle(new AgentRequest("conv-x", "fine", Map.of()));
+		assertThatThrownBy(() -> flaky.handle(new AgentRequest("conv-x", "boom", Map.of())))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("provider down");
+
+		assertThat(memory.get("conv-x")).extracting(Message::getText).containsExactly("fine", "stub reply");
+	}
+
+	@Test
+	void failedFirstCallLeavesTheConversationEmpty() {
 		StubChatModel failing = new StubChatModel() {
 			@Override
 			public ChatResponse call(Prompt prompt) {
@@ -99,8 +170,23 @@ class LlmAgentTest {
 			}
 		};
 
-		assertThatThrownBy(() -> agent(failing, "sys").handle(AgentRequest.of("hi")))
-			.isInstanceOf(IllegalStateException.class)
-			.hasMessage("provider down");
+		assertThatThrownBy(() -> agent(failing, memory, "sys").handle(new AgentRequest("conv-y", "hi", Map.of())))
+			.isInstanceOf(IllegalStateException.class);
+		assertThat(memory.get("conv-y")).isEmpty();
+	}
+
+	// --- attribute helpers -------------------------------------------------------------------
+
+	@Test
+	void attributeHelpers() {
+		AgentRequest request = new AgentRequest(null, "x", Map.of("s", " v ", "blank", "  ", "n", 7, "t", "12", "bad", "abc"));
+
+		assertThat(LlmAgent.attribute(request, "s")).isEqualTo("v");
+		assertThat(LlmAgent.attribute(request, "blank")).isNull();
+		assertThat(LlmAgent.attribute(request, "missing")).isNull();
+		assertThat(LlmAgent.attribute(request, "n", 1)).isEqualTo(7);
+		assertThat(LlmAgent.attribute(request, "t", 1)).isEqualTo(12);
+		assertThat(LlmAgent.attribute(request, "bad", 1)).isEqualTo(1);
+		assertThat(LlmAgent.attribute(request, "missing", 1)).isEqualTo(1);
 	}
 }

@@ -3,6 +3,7 @@ package com.project.multi_agent_ai_platform.agent.impl;
 import java.util.List;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Component;
 
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
@@ -19,8 +20,8 @@ public class GeneralAgent extends LlmAgent {
 			when the request is genuinely ambiguous. Keep answers as short as the question allows.
 			""";
 
-	public GeneralAgent(ChatClient.Builder builder, LlmProvider provider) {
-		super(builder, provider, SYSTEM_PROMPT);
+	public GeneralAgent(ChatClient.Builder builder, ChatMemory chatMemory, LlmProvider provider) {
+		super(builder, chatMemory, provider, SYSTEM_PROMPT);
 	}
 
 	@Override

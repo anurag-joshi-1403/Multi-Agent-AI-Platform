@@ -6,18 +6,22 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.project.multi_agent_ai_platform.agent.core.AgentRegistry;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.config.PlatformProperties;
 import com.project.multi_agent_ai_platform.web.dto.PlatformStatus;
 
-/** {@code GET /api/platform} - which provider and model are active, and whether a key is set. */
+/** {@code GET /api/platform} - which provider and model are active, whether a key is set, and the limits. */
 @RestController
 public class PlatformController {
 
 	private final LlmProvider provider;
 
+	private final PlatformProperties properties;
+
 	private final AgentRegistry registry;
 
-	public PlatformController(LlmProvider provider, AgentRegistry registry) {
+	public PlatformController(LlmProvider provider, PlatformProperties properties, AgentRegistry registry) {
 		this.provider = provider;
+		this.properties = properties;
 		this.registry = registry;
 	}
 
@@ -30,7 +34,7 @@ public class PlatformController {
 				provider.apiKeyConfigured(),
 				provider.keyEnvVar(),
 				registry.all().size(),
-				0,
+				properties.memory().maxMessages(),
 				PlatformStatus.Documents.NONE);
 	}
 }

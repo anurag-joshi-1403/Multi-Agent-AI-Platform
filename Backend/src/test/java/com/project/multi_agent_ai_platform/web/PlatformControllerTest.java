@@ -11,6 +11,7 @@ import java.util.List;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
@@ -23,9 +24,11 @@ import com.project.multi_agent_ai_platform.agent.core.AgentRegistry;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.config.PlatformProperties;
 
 @WebMvcTest(PlatformController.class)
 @Import(PlatformControllerTest.ProviderConfig.class)
+@EnableConfigurationProperties(PlatformProperties.class)
 class PlatformControllerTest {
 
 	private static final String KEY = "very-secret-key-value";
@@ -73,7 +76,7 @@ class PlatformControllerTest {
 			.andExpect(jsonPath("$.apiKeyConfigured").value(true))
 			.andExpect(jsonPath("$.keyEnvVar").value("GEMINI_API_KEY"))
 			.andExpect(jsonPath("$.agents").value(1))
-			.andExpect(jsonPath("$.memoryMaxMessages").value(0))
+			.andExpect(jsonPath("$.memoryMaxMessages").value(20))
 			.andExpect(jsonPath("$.documents.stored").value(0))
 			.andExpect(jsonPath("$.documents.maxStored").value(0))
 			.andExpect(jsonPath("$.documents.maxContextChars").value(0))

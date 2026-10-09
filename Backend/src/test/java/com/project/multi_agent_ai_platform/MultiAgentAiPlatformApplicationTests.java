@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import com.project.multi_agent_ai_platform.agent.core.Agent;
 import com.project.multi_agent_ai_platform.agent.core.AgentRegistry;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
+import com.project.multi_agent_ai_platform.config.PlatformProperties;
 
 @SpringBootTest
 class MultiAgentAiPlatformApplicationTests {
@@ -19,9 +20,17 @@ class MultiAgentAiPlatformApplicationTests {
 	@Autowired
 	LlmProvider provider;
 
+	@Autowired
+	PlatformProperties properties;
+
 	@Test
 	void contextLoadsAndDiscoversTheAgents() {
 		assertThat(registry.all()).extracting(Agent::id).containsExactly("general");
+	}
+
+	@Test
+	void memoryWindowDefaultsTo20() {
+		assertThat(properties.memory().maxMessages()).isEqualTo(20);
 	}
 
 	@Test
