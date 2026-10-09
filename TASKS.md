@@ -24,8 +24,9 @@ How to build each backend phase: [`BACKEND.md`](BACKEND.md) · How to run it: [`
 | ⚙️ **Backend** | 🟡 First agent live — the General Assistant answers for real through Gemini · 3 endpoints · Phases 3–7 to go |
 | 🔐 **Login** | 🔴 Placeholder — any username and password gets in ([`App.tsx:30`](Frontend/src/App.tsx#L30)) |
 | 🧪 **Tests** | 🟡 Backend: 35 passing, no key or network needed · Frontend: none |
-| 📚 **Docs** | 🟡 Some links broken — `PROGRESS.md` was removed, `FRONTEND_BUG_AUDIT.md` never existed |
+| 📚 **Docs** | 🟡 Behind the code — `README.md` still says there's no backend, and links to removed or missing files |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
+| 💾 **Git** | 🟢 Phases 1–2 pushed to `origin/main` (`6dbfe12`) · working tree clean |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -62,7 +63,7 @@ flowchart LR
 
 1. 🔑 **Make sure the leaked keys are revoked** in Google AI Studio (`…Egng` and `…5i5w`).
 2. 🧠 **Start Phase 3**: three more agents and chat memory.
-3. 🔗 **Fix the doc links** to the removed `PROGRESS.md` and the missing `FRONTEND_BUG_AUDIT.md`.
+3. 📚 **Bring `README.md` up to date**: the backend runs now, and the old links are broken.
 
 ---
 
@@ -89,7 +90,7 @@ flowchart LR
 
 - [x] 📦 Project generated: Web MVC, Validation, Actuator, Lombok (`cf110e9`)
 - [x] 📁 Package folders created: `agent/core` · `agent/llm` · `agent/impl` · `document` · `config` · `web/dto`
-  (still empty, so git can't see them yet)
+  (all filled in Phase 2 except `document/`, which Phase 4 fills)
 - [x] ⚙️ `application.properties` filled in (port, `127.0.0.1`, `.env` import, problem+json, health)
 - [x] 📄 Create `Backend/.env.example` with empty values
 - [x] 🙈 Add `!.env.example` to the root `.gitignore` (its `.env.*` rule hides the example)
@@ -213,6 +214,8 @@ Small fixes you can do now, without the backend:
 - [ ] ✏️ Login error says *"email or username"*; there are no emails ([`LoginPage.tsx:157`](Frontend/src/pages/LoginPage.tsx#L157))
 - [ ] 💬 [`client.ts:7`](Frontend/src/api/client.ts#L7) points to a `Backend/README.md` that doesn't exist, and lists
   `GET /api/documents`, which nothing calls
+- [ ] 🔑 The "no API key" hints name `GROQ_API_KEY`, but the backend uses `GEMINI_API_KEY`. Show `platform.keyEnvVar` instead
+  ([`App.tsx:133`](Frontend/src/App.tsx#L133), [`OverviewPage.tsx:89`](Frontend/src/pages/OverviewPage.tsx#L89))
 - [ ] 🧪 Add tests (there are none) — e.g. Vitest for `lib/` and `api/client.ts`
 - [ ] 💰 Token and cost totals per chat in the Inspector *(later)*
 
@@ -221,13 +224,18 @@ Small fixes you can do now, without the backend:
 ## 📚 Docs & housekeeping
 
 - [x] 📈 `PROGRESS.md` removed (`25f5d71`)
-- [ ] 🔗 Remove the links to it from `README.md` (lines 20, 123, 154, 187) and `BACKEND.md` (footer)
-- [ ] 🩺 `README.md` lists `FRONTEND_BUG_AUDIT.md`, but that file was never committed. Remove the row and the layout line.
+- [ ] 📖 **`README.md` still describes a repo with no backend.** Update it for Phase 2:
+  - add **how to run the backend**: copy `.env.example` to `.env`, add the key, `./mvnw spring-boot:run` from `Backend/`
+  - the status note (line 19), the *rebuilding* badge (13), the diagram (72), line 127 and the footer (194)
+  - Troubleshooting (line 162) still says *"there is no backend yet"*
+- [ ] 🔗 Remove the links to `PROGRESS.md` from `README.md` (lines 20, 123, 154, 187) and `BACKEND.md` (footer)
+- [ ] 🩺 `README.md` lists `FRONTEND_BUG_AUDIT.md` (lines 124, 189), but that file was never committed
+- [ ] 🏷️ `BACKEND.md`: the status badge says *Not started* and every phase is 🔴; mark Phases 0–2
 - [ ] 📝 [`Frontend/README.md:175`](Frontend/README.md#L175) says the backend includes Spring Security; it doesn't yet
-- [ ] 🏷️ Update the badges as phases land (README *Backend: rebuilding*, BACKEND.md *Status: Not started*)
 - [ ] 🧾 `pom.xml`: fill in or delete the empty `<name/>`, `<description/>`, `<licenses>`, `<developers>`, `<scm>`
 - [ ] 🌶️ Lombok is in `pom.xml` but no code uses it. On Java 25 it prints `sun.misc.Unsafe` warnings and breaks VS Code's annotation processing, so consider removing it
 - [ ] 🗑️ Delete the stray `target/` folder at the repo root (old build output)
+- [ ] 🌿 Delete branch `phase-2/foundation` (local + GitHub). It's from the old backend and fully merged into `main`
 - [ ] ⚖️ Add a `LICENSE` *(optional)*
 
 ---
@@ -235,6 +243,8 @@ Small fixes you can do now, without the backend:
 ## 🔒 Before anyone else can reach it
 
 - [ ] 🔑 The leaked key is revoked (see [Do these next](#-do-these-next))
+- [ ] 🧹 Delete the local branch `backup-before-scrub`, the only place both leaked keys still sit together
+  (`53ec5b2`, `6619ece`). It was never pushed, and deleting it can't be undone
 - [ ] 🏠 Keep `server.address=127.0.0.1` until Phase 5 login works
 - [ ] 🔐 HTTPS + `Secure` cookies (Phase 7)
 - [ ] 🙈 No keys in `VITE_*` variables; every visitor can see them
