@@ -239,7 +239,7 @@ export async function runAgent(agentId: string, request: AgentRequest): Promise<
   // starting. Probe again before answering with a simulated reply, so a backend that has come up
   // since is used without the person having to refresh or press Retry.
   if (simulated() && !simulationForced()) await listAgents()
-  if (simulated()) return mockRun(agentId, request)
+  if (simulated()) return mockRun(agentId, request, simulationForced() ? 'simulation-mode' : 'offline')
   try {
     const raw = await http<unknown>(`/agents/${encodeURIComponent(agentId)}/run`, {
       method: 'POST',
@@ -251,7 +251,9 @@ export async function runAgent(agentId: string, request: AgentRequest): Promise<
     // problem body came from the proxy in front of it, i.e. the backend is down: same as a network error.
     if (err instanceof ApiError && (err.fromBackend || err.status < 500)) throw err
     setStatus('offline')
-    throw new Error('Backend unreachable. Switched to simulation mode — send again to get a simulated reply.', {
+    // Not "Simulation mode": that is the Settings switch, and it stays off. Replies are simulated
+    // only until the backend answers again (the next send probes it first).
+    throw new Error('Backend unreachable. Send again to get a simulated reply, or a real one once it is back.', {
       cause: err,
     })
   }

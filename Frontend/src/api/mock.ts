@@ -142,6 +142,16 @@ export async function mockDeleteDocument(id: string): Promise<void> {
 }
 
 // --- simulated replies ------------------------------------------------------
+/** Why a reply is simulated: switched on in Settings, or the backend could not be reached. */
+export type SimulationReason = 'simulation-mode' | 'offline'
+
+const WHY_SIMULATED: Record<SimulationReason, string> = {
+  'simulation-mode':
+    '**Simulation mode** is on in Settings, so no model was called. Turn it off and press **Apply & reconnect** to talk to real agents.',
+  offline:
+    'the backend could not be reached, so no model was called. Start the Spring Boot app on port 8080 and send your message again to talk to real agents.',
+}
+
 /** Documents named by the request's `attachments` attribute, skipping ids the store no longer has. */
 function attachedDocuments(request: AgentRequest): DocumentSummary[] {
   const raw = request.attributes.attachments
@@ -149,7 +159,11 @@ function attachedDocuments(request: AgentRequest): DocumentSummary[] {
   return ids.map((id) => mockDocuments.find((d) => d.id === id)).filter((d): d is DocumentSummary => !!d)
 }
 
-function reply(agentId: string, request: AgentRequest): { content: string; metadata: Record<string, unknown> } {
+function reply(
+  agentId: string,
+  request: AgentRequest,
+  reason: SimulationReason,
+): { content: string; metadata: Record<string, unknown> } {
   const message = request.message
   const snippet = message.length > 80 ? message.slice(0, 77) + '…' : message
   const attached = attachedDocuments(request)
@@ -241,7 +255,7 @@ function reply(agentId: string, request: AgentRequest): { content: string; metad
             .join(', ')}.`
         : ''
       return {
-        content: `Sure — here's a quick take on "${snippet}".${note}\n\nThis is a simulated answer: the backend is offline, so no model was called. Start the Spring Boot app on port 8080 and refresh to talk to real agents.`,
+        content: `Sure — here's a quick take on "${snippet}".${note}\n\nThis is a simulated answer: ${WHY_SIMULATED[reason]}`,
         metadata: attached.length
           ? { model: 'simulated', documentNames: attached.map((d) => d.name) }
           : { model: 'simulated' },
@@ -250,9 +264,9 @@ function reply(agentId: string, request: AgentRequest): { content: string; metad
   }
 }
 
-export async function mockRun(agentId: string, request: AgentRequest): Promise<AgentResponse> {
+export async function mockRun(agentId: string, request: AgentRequest, reason: SimulationReason): Promise<AgentResponse> {
   await delay(500 + Math.random() * 900)
-  const { content, metadata } = reply(agentId, request)
+  const { content, metadata } = reply(agentId, request, reason)
   return {
     agentId,
     content,
