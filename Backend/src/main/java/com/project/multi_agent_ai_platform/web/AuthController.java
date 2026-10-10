@@ -7,6 +7,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,8 +16,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.project.multi_agent_ai_platform.user.UserStore;
 import com.project.multi_agent_ai_platform.web.dto.AuthResponse;
 import com.project.multi_agent_ai_platform.web.dto.LoginRequest;
+import com.project.multi_agent_ai_platform.web.dto.SignupRequest;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,6 +30,7 @@ import jakarta.validation.Valid;
  * Session-cookie login for the console. Every other {@code /api} route needs the session this
  * starts (see {@link com.project.multi_agent_ai_platform.config.SecurityConfig}).
  * <pre>
+ *   POST /api/auth/signup   create an account, start a session            -> 201 {username} or 409
  *   POST /api/auth/login    check username + password, start a session   -> 200 {username}
  *   POST /api/auth/logout   end the session (works without one too)      -> 204
  *   GET  /api/auth/me       who the session belongs to                    -> 200 {username} or 401
@@ -40,10 +44,16 @@ public class AuthController {
 
 	private final SecurityContextRepository securityContextRepository;
 
+	private final UserStore users;
+
+	private final PasswordEncoder passwordEncoder;
+
 	public AuthController(AuthenticationManager authenticationManager,
-			SecurityContextRepository securityContextRepository) {
+			SecurityContextRepository securityContextRepository, UserStore users, PasswordEncoder passwordEncoder) {
 		this.authenticationManager = authenticationManager;
 		this.securityContextRepository = securityContextRepository;
+		this.users = users;
+		this.passwordEncoder = passwordEncoder;
 	}
 
 	/** A wrong username or password throws here and becomes the same generic {@code 401} either way. */
@@ -79,5 +89,14 @@ public class AuthController {
 	public AuthResponse me(Authentication authentication) {
 		// Only reachable with a session: SecurityConfig answers 401 before this runs otherwise
 		return new AuthResponse(authentication.getName());
+	}
+
+	/** Create an account (password stored as a BCrypt hash), then sign straight in. */
+	@PostMapping(path = "/signup", consumes = MediaType.APPLICATION_JSON_VALUE)
+	@ResponseStatus(HttpStatus.CREATED)
+	public AuthResponse signup(@Valid @RequestBody SignupRequest body, HttpServletRequest request,
+			HttpServletResponse response) {
+		users.create(body.username(), passwordEncoder.encode(body.password()));
+		return login(new LoginRequest(body.username(), body.password()), request, response);
 	}
 }

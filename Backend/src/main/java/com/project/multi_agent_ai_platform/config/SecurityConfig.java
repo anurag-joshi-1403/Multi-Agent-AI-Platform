@@ -18,9 +18,10 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextRepository;
 
 /**
- * Console login. {@code POST /api/auth/login} checks an account in the database and starts a
- * session (see {@code AuthController}); every other {@code /api} route then needs that session.
- * Accounts are read by {@code DatabaseUserDetailsService}.
+ * Console login. {@code POST /api/auth/signup} creates an account in the database and
+ * {@code POST /api/auth/login} checks one (see {@code AuthController}); both start a session, and
+ * every other {@code /api} route then needs that session. Accounts are read by
+ * {@code DatabaseUserDetailsService}.
  * <p>
  * CSRF protection is off for {@code /api/**}: it is a JSON API, and the session cookie is
  * {@code SameSite=Strict} (application.properties), so the browser never sends it with a request
@@ -38,12 +39,12 @@ public class SecurityConfig {
 			.exceptionHandling(handling -> handling.authenticationEntryPoint(authenticationEntryPoint))
 			// No session for anonymous requests: the request cache would otherwise open one on every 401
 			.requestCache(AbstractHttpConfigurer::disable)
-			// AuthController owns login and logout; Spring's form and /logout endpoints are not used
+			// AuthController owns sign-up, login and logout; Spring's form and /logout endpoints are not used
 			.formLogin(AbstractHttpConfigurer::disable)
 			.httpBasic(AbstractHttpConfigurer::disable)
 			.logout(AbstractHttpConfigurer::disable)
 			.authorizeHttpRequests(auth -> auth
-				.requestMatchers("/api/auth/login", "/api/auth/logout", "/actuator/health", "/error")
+				.requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/logout", "/actuator/health", "/error")
 				.permitAll()
 				.anyRequest()
 				.authenticated());
@@ -74,7 +75,7 @@ public class SecurityConfig {
 		return new HttpSessionSecurityContextRepository();
 	}
 
-	/** Checks password hashes on login. */
+	/** Hashes passwords on sign-up, and checks them on login. */
 	@Bean
 	PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();

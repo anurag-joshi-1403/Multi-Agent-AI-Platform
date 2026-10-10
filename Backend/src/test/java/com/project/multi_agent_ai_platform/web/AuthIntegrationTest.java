@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -24,12 +26,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.project.multi_agent_ai_platform.user.UserAccount;
 import com.project.multi_agent_ai_platform.user.UserStore;
 
 /**
- * The real login flow against the whole application, with no "signed in by default" shortcut: the
- * one place that proves the session itself works and that nothing under {@code /api} is open.
- * Accounts live in MongoDB ({@code agents_test} database), so MongoDB must be running.
+ * The real sign-up and login flow against the whole application, with no "signed in by default"
+ * shortcut: the one place that proves the session itself works and that nothing under {@code /api}
+ * is open. Accounts live in MongoDB ({@code agents_test} database), so MongoDB must be running.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -56,6 +59,17 @@ class AuthIntegrationTest {
 		return mvc.perform(post("/api/auth/login")
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"));
+	}
+
+	private ResultActions signup(String username, String password) throws Exception {
+		return mvc.perform(post("/api/auth/signup")
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"));
+	}
+
+	/** A name no earlier run used, since the test database keeps its accounts between runs. */
+	private static String freshName() {
+		return "new-" + UUID.randomUUID().toString().substring(0, 8);
 	}
 
 	private MockHttpSession signedInSession() throws Exception {
@@ -145,5 +159,56 @@ class AuthIntegrationTest {
 	void documentsCanBeDeletedOnceSignedIn() throws Exception {
 		// DELETE is not exempt from anything: it works with the session, as the console needs
 		mvc.perform(delete("/api/documents/doc_missing").session(signedInSession())).andExpect(status().isNoContent());
+	}
+
+	// --- sign-up ---------------------------------------------------------------------------
+
+	@Test
+	void signUpStoresAHashedAccountAndSignsStraightIn() throws Exception {
+		String name = freshName();
+
+		MvcResult result = signup(name, "a-long-password")
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.username").value(name))
+			.andReturn();
+
+		UserAccount stored = users.findByUsername(name).orElseThrow();
+		assertThat(stored.passwordHash()).startsWith("$2a$").isNotEqualTo("a-long-password");
+		assertThat(stored.role()).isEqualTo("USER");
+		MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
+		mvc.perform(get("/api/auth/me").session(session))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.username").value(name));
+	}
+
+	@Test
+	void aSignedUpAccountCanLogInLaterButNotWithAWrongPassword() throws Exception {
+		String name = freshName();
+		signup(name, "a-long-password").andExpect(status().isCreated());
+
+		login(name, "a-long-password").andExpect(status().isOk());
+		login(name, "not-the-password").andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void theSameUsernameTwiceIs409() throws Exception {
+		String name = freshName();
+		signup(name, "a-long-password").andExpect(status().isCreated());
+
+		signup(name, "another-password")
+			.andExpect(status().isConflict())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Username taken"));
+	}
+
+	@Test
+	void signUpChecksTheInputFirst() throws Exception {
+		signup("ab", "a-long-password").andExpect(status().isBadRequest());
+		signup("has space", "a-long-password").andExpect(status().isBadRequest());
+		signup(freshName(), "short")
+			.andExpect(status().isBadRequest())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.detail").value("password: at least 8 characters"));
+		assertThat(users.findByUsername("ab")).isEmpty();
 	}
 }

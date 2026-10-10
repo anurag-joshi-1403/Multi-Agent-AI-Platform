@@ -6,11 +6,16 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.project.multi_agent_ai_platform.agent.core.InvalidAgentRequestException;
@@ -18,12 +23,16 @@ import com.project.multi_agent_ai_platform.agent.core.UnknownAgentException;
 import com.project.multi_agent_ai_platform.config.ProviderChainException;
 import com.project.multi_agent_ai_platform.config.ProviderFailure;
 import com.project.multi_agent_ai_platform.document.UnsupportedDocumentException;
+import com.project.multi_agent_ai_platform.user.UsernameTakenException;
 
 /**
- * Maps exceptions to RFC 9457 problem details. Extending {@link ResponseEntityExceptionHandler}
- * keeps Spring's own mappings (validation → 400, unknown route → 404, ...) and adds ours on top.
+ * Maps exceptions to RFC 9457 problem details. Extending
+ * {@link ResponseEntityExceptionHandler}
+ * keeps Spring's own mappings (validation → 400, unknown route → 404, ...) and
+ * adds ours on top.
  * <p>
- * Every error leaves as problem+json with a {@code detail} the console shows as-is. A server error
+ * Every error leaves as problem+json with a {@code detail} the console shows
+ * as-is. A server error
  * without one would look to the console like "backend offline".
  */
 @RestControllerAdvice
@@ -44,8 +53,10 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 	}
 
 	/**
-	 * Wrong username or password on {@code POST /api/auth/login}. The same message either way, so
-	 * it cannot be used to find out which usernames exist. (A request with no session never reaches
+	 * Wrong username or password on {@code POST /api/auth/login}. The same message
+	 * either way, so
+	 * it cannot be used to find out which usernames exist. (A request with no
+	 * session never reaches
 	 * a controller; SecurityConfig's entry point answers that one.)
 	 */
 	@ExceptionHandler(AuthenticationException.class)
@@ -59,9 +70,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 	}
 
 	/**
-	 * No AI provider answered. With one provider tried, the message is about that provider (with
-	 * the key to set, when that is the problem); with several, it lists what went wrong with each.
-	 * 503 when every failure may pass by itself (rate limits, outages), 502 when something needs
+	 * No AI provider answered. With one provider tried, the message is about that
+	 * provider (with
+	 * the key to set, when that is the problem); with several, it lists what went
+	 * wrong with each.
+	 * 503 when every failure may pass by itself (rate limits, outages), 502 when
+	 * something needs
 	 * fixing, like a key.
 	 */
 	@ExceptionHandler(ProviderChainException.class)
@@ -82,7 +96,10 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 		return problem;
 	}
 
-	/** Anything not mapped above. A provider failure wrapped by another layer is still found. */
+	/**
+	 * Anything not mapped above. A provider failure wrapped by another layer is
+	 * still found.
+	 */
 	@ExceptionHandler(Exception.class)
 	ProblemDetail unexpected(Exception ex) {
 		for (Throwable cause = ex.getCause(); cause != null && cause != cause.getCause(); cause = cause.getCause()) {
@@ -116,5 +133,29 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 		problem.setTitle(title);
 		problem.setType(URI.create("https://multi-agent-ai-platform/problems/" + status.value()));
 		return problem;
+	}
+
+	/**
+	 * A request body that breaks its validation rules. Spring's own answer only says "Invalid request
+	 * content."; this names each field and rule, e.g. {@code password: at least 8 characters}.
+	 */
+	@Override
+	protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
+			HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+		String detail = ex.getBindingResult()
+			.getFieldErrors()
+			.stream()
+			.map(error -> error.getField() + ": " + error.getDefaultMessage())
+			.sorted()
+			.collect(Collectors.joining("; "));
+		ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Invalid request",
+				detail.isEmpty() ? "The request is not valid." : detail);
+		return handleExceptionInternal(ex, problem, headers, HttpStatus.BAD_REQUEST, request);
+	}
+
+	/** Sign-up with a username that is already registered. */
+	@ExceptionHandler(UsernameTakenException.class)
+	ProblemDetail usernameTaken(UsernameTakenException ex) {
+		return problem(HttpStatus.CONFLICT, "Username taken", "That username is already registered. Pick another one.");
 	}
 }
