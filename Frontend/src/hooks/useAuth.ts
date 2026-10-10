@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { login as apiLogin, logout as apiLogout, me, subscribeAuthExpired } from '../api/client'
+import { login as apiLogin, logout as apiLogout, me, signup as apiSignup, subscribeAuthExpired } from '../api/client'
 import type { AuthUser } from '../api/client'
 
 export type AuthStatus = 'checking' | 'authenticated' | 'anonymous'
@@ -10,6 +10,8 @@ export interface AuthApi {
   /** Set only when the session check failed outright (backend unreachable), not for "not signed in". */
   checkError: string | null
   login: (username: string, password: string) => Promise<void>
+  /** Create an account, then sign straight in. */
+  signup: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -56,6 +58,13 @@ export function useAuth(): AuthApi {
     setStatus('authenticated')
   }, [])
 
+  const signup = useCallback(async (username: string, password: string) => {
+    const u = await apiSignup(username, password)
+    setUser(u)
+    setCheckError(null)
+    setStatus('authenticated')
+  }, [])
+
   const logout = useCallback(async () => {
     // Whatever the server says (or if it can't be reached), the console closes.
     await apiLogout().catch(() => undefined)
@@ -63,5 +72,5 @@ export function useAuth(): AuthApi {
     setStatus('anonymous')
   }, [])
 
-  return { status, user, checkError, login, logout }
+  return { status, user, checkError, login, signup, logout }
 }

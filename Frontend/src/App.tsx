@@ -38,7 +38,15 @@ function App() {
   }
 
   if (auth.status === 'anonymous') {
-    return <LoginPage onLogin={auth.login} checkError={auth.checkError} theme={theme} onToggleTheme={toggleTheme} />
+    return (
+      <LoginPage
+        onLogin={auth.login}
+        onSignup={auth.signup}
+        checkError={auth.checkError}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+    )
   }
 
   return <Console auth={auth} theme={theme} toggleTheme={toggleTheme} />

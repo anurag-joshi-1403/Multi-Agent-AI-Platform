@@ -22,6 +22,8 @@ import type { Theme } from '../hooks/useTheme'
 
 interface Props {
   onLogin: (username: string, password: string) => Promise<void>
+  /** Create an account in the backend's database, then sign in. */
+  onSignup: (username: string, password: string) => Promise<void>
   /** Set when the first session check itself failed (backend unreachable). Shown as a hint, not an
    * error, since it isn't the result of anything the person did. */
   checkError: string | null
@@ -67,9 +69,16 @@ const REPO_URL = 'https://github.com/anurag-joshi-1403/Multi-Agent-AI-Platform'
 // the page design, so rather than dead links they explain the actual state in one line.
 const NOTICES = {
   google: 'Google sign-in isn’t set up on this backend yet — sign in with your username and password.',
-  signup: 'There’s no self-service sign-up yet — accounts are created by whoever runs this backend.',
   reset: 'Passwords are managed by whoever runs this backend — there’s no self-service reset yet.',
 } as const
+
+/** The backend's sign-up rules (SignupRequest), checked before sending. */
+function signupProblem(username: string, password: string): string | null {
+  if (username.length < 3 || username.length > 50) return 'The username needs 3–50 characters.'
+  if (!/^[A-Za-z0-9._-]+$/.test(username)) return 'The username can only use letters, digits, dot, dash and underscore.'
+  if (password.length < 8) return 'The password needs at least 8 characters.'
+  return null
+}
 
 function scrollToSection(id: string) {
   if (id === 'home') {
@@ -84,7 +93,7 @@ function scrollToSection(id: string) {
  * simulation is a setting reached from inside the console, and a backend that can't be reached
  * means nobody can sign in, as with any other login page.
  */
-export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) {
+export function LoginPage({ onLogin, onSignup, checkError, theme, onToggleTheme }: Props) {
   const remembered = loadString(STORAGE_KEYS.rememberUser)
   const [username, setUsername] = useState(remembered ?? '')
   const [password, setPassword] = useState('')
@@ -93,6 +102,7 @@ export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) 
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [menuOpen, setMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState<string>('home')
   const [scrolled, setScrolled] = useState(false)
@@ -142,7 +152,14 @@ export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) 
     e.preventDefault()
     setMenuOpen(false)
     scrollToSection('home')
-    show('signup')
+    switchMode('signup')
+  }
+
+  function switchMode(next: 'login' | 'signup') {
+    setError(null)
+    setNotice(null)
+    setMode(next)
+    usernameRef.current?.focus()
   }
 
   function show(kind: keyof typeof NOTICES) {
@@ -164,14 +181,23 @@ export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) 
       setError('Enter your username and password.')
       return
     }
+    // The same rules as the backend's SignupRequest, so the answer comes at once and in plain words
+    if (mode === 'signup') {
+      const problem = signupProblem(user, password)
+      if (problem) {
+        setNotice(null)
+        setError(problem)
+        return
+      }
+    }
     setBusy(true)
     setError(null)
     setNotice(null)
     try {
-      await onLogin(user, password)
+      await (mode === 'signup' ? onSignup : onLogin)(user, password)
       saveString(STORAGE_KEYS.rememberUser, remember ? user : null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign-in failed')
+      setError(err instanceof Error ? err.message : mode === 'signup' ? 'Sign-up failed' : 'Sign-in failed')
       setBusy(false)
     }
   }
@@ -245,8 +271,10 @@ export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) 
           <span className="ap-blob ap-blob-3" aria-hidden />
 
           <form className="ap-card" onSubmit={submit} noValidate>
-            <h1>Welcome Back!</h1>
-            <p className="ap-sub">Login to continue to your account</p>
+            <h1>{mode === 'signup' ? 'Create your account' : 'Welcome Back!'}</h1>
+            <p className="ap-sub">
+              {mode === 'signup' ? 'Sign up to start using the agents' : 'Login to continue to your account'}
+            </p>
 
             {error && (
               <p className="ap-alert ap-alert-error" role="alert">
@@ -263,10 +291,10 @@ export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) 
                 Couldn&rsquo;t reach the backend to check for a saved session: {checkError}
               </p>
             )}
-            {!error && !notice && !checkError && (
+            {!error && !notice && !checkError && mode === 'signup' && (
               <p className="ap-hint">
-                Accounts come from <code>AUTH_USERS</code> in <code>Backend/.env</code>. Not set yet? The backend
-                log shows a one-time <code>admin</code> password.
+                Username: 3–50 letters, digits, <code>.</code> <code>_</code> or <code>-</code>. Password: at least 8
+                characters.
               </p>
             )}
 
@@ -300,7 +328,7 @@ export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) 
                   className="ap-input"
                   aria-labelledby="ap-password-label"
                   type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -331,7 +359,7 @@ export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) 
 
             <button type="submit" className="ap-btn ap-btn-primary ap-btn-lg" disabled={busy}>
               {busy ? <span className="ap-spinner" aria-hidden /> : null}
-              {busy ? 'Signing in…' : 'Login'}
+              {busy ? 'Please wait…' : mode === 'signup' ? 'Create account' : 'Login'}
               {!busy && <IconArrowRight />}
             </button>
 
@@ -345,9 +373,16 @@ export function LoginPage({ onLogin, checkError, theme, onToggleTheme }: Props) 
             </button>
 
             <p className="ap-foot">
-              Don&rsquo;t have an account?{' '}
-              <a href="#signup" className="ap-link" onClick={(e) => { e.preventDefault(); show('signup') }}>
-                Sign Up
+              {mode === 'login' ? 'Don’t have an account?' : 'Already have an account?'}{' '}
+              <a
+                href="#signup"
+                className="ap-link"
+                onClick={(e) => {
+                  e.preventDefault()
+                  switchMode(mode === 'login' ? 'signup' : 'login')
+                }}
+              >
+                {mode === 'login' ? 'Sign Up' : 'Log in'}
               </a>
             </p>
           </form>

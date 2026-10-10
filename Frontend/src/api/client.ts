@@ -6,6 +6,7 @@ import { MOCK_AGENTS, MOCK_PLATFORM, mockDeleteDocument, mockRun, mockUploadDocu
 /**
  * Backend contract (see BACKEND.md):
  *
+ *   POST   /api/auth/signup              <- {username, password} -> AuthUser (creates the account, starts a session)
  *   POST   /api/auth/login               <- {username, password} -> AuthUser (starts a session)
  *   POST   /api/auth/logout              (ends the session)
  *   GET    /api/auth/me                  -> AuthUser, or 401 without a session
@@ -16,7 +17,7 @@ import { MOCK_AGENTS, MOCK_PLATFORM, mockDeleteDocument, mockRun, mockUploadDocu
  *   DELETE /api/documents/{id}
  *   DELETE /api/conversations/{id}       (forget server-side memory)
  *
- * Every route except login/logout needs the session cookie. Errors follow RFC 9457 problem+json.
+ * Every route except signup/login/logout needs the session cookie. Errors follow RFC 9457 problem+json.
  */
 
 export type BackendStatus = 'checking' | 'online' | 'offline' | 'simulated'
@@ -297,6 +298,15 @@ function unreachable(err: unknown): unknown {
 export async function login(username: string, password: string): Promise<AuthUser> {
   try {
     return toAuthUser(await http<unknown>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }))
+  } catch (err) {
+    throw unreachable(err)
+  }
+}
+
+/** Create an account in the backend's database and start a session, like `login`. */
+export async function signup(username: string, password: string): Promise<AuthUser> {
+  try {
+    return toAuthUser(await http<unknown>('/auth/signup', { method: 'POST', body: JSON.stringify({ username, password }) }))
   } catch (err) {
     throw unreachable(err)
   }
