@@ -32,8 +32,8 @@
 | 🗄️ **Storage** | Uploads + chat memory in an **H2 file** (`Backend/data/`) · accounts in **MongoDB** |
 | 🧪 **Tests** | 136 passing (no AI key or network needed; account tests need MongoDB running) |
 | ✅ **Done** | Phases 0–6 + MongoDB accounts — [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 29 small pieces — [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | Phases 1–6 pushed · **MongoDB accounts not committed yet** |
+| 🧩 **Left** | 28 small pieces — [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — accounts `bbc501c` · sign-up `44b3856` |
 
 ---
 
@@ -125,7 +125,7 @@ sequenceDiagram
 - ✅ Fixed on the way: an empty key in `.env` used to stop the backend from starting
 - ✅ Checked: a fake Groq key → Gemini answered, and the reply named both
 
-### 🍃 Step 7 — Accounts in MongoDB *(Oct 10, ⚠️ not committed yet)*
+### 🍃 Step 7 — Accounts in MongoDB *(Oct 10, `bbc501c` · `44b3856`)*
 
 - ✅ `user/` package: `UserAccount`, `UserStore`, `MongoUserStore`, `UserDocument`, `UserRepository`,
   `DatabaseUserDetailsService`, `UsernameTakenException`
@@ -205,7 +205,7 @@ Backend/src/main/resources/   application.properties · schema.sql
 flowchart LR
     classDef now fill:#fde68a,stroke:#b7791f,color:#3a2a05,font-weight:bold
     classDef later fill:#e5e7eb,stroke:#6b7280,color:#1f2937
-    N["🏁 Now<br/>A1 A3 A4 A5"] --> DOC["📚 Docs<br/>B1–B5"] --> HK["🧹 Tidy<br/>D1–D5"]
+    N["🏁 Now<br/>A1 A4 A5"] --> DOC["📚 Docs<br/>B1–B5"] --> HK["🧹 Tidy<br/>D1–D5"]
     HK --> SAFE["🔒 Safe to share<br/>E1–E4"]
     SAFE --> STR["🌊 Streaming<br/>F1 F2"]
     SAFE --> MORE["🧭 Features<br/>F4 F6 F7 F8 F9 C3"]
@@ -218,7 +218,7 @@ flowchart LR
 ### 🏁 Now
 
 - [ ] **A1** 🔑 Revoke the leaked Gemini keys `…Egng` and `…5i5w` in [AI Studio](https://aistudio.google.com/apikey) — 👤 🟢
-- [ ] **A3** 💾 Commit and push the MongoDB accounts work, in small commits — 🤖 🟢
+- [x] **A3** 💾 Committed and pushed: `bbc501c` accounts in MongoDB · `44b3856` sign-up endpoint — 🤖 🟢
 - [ ] **A4** 🧹 Delete the local branch `backup-before-scrub` (holds both leaked keys) — after **A1** — 🤖 🟢
 - [ ] **A5** 🌿 Delete the old branch `phase-2/foundation`, local and on GitHub — 🤖 🟢
 

@@ -30,8 +30,8 @@
 | 🔌 **Talks to** | The Spring Boot backend through Vite's `/api` proxy — or a built-in **simulation** when it can't |
 | 💾 **Keeps in the browser** | Chats, theme, settings (`localStorage`, keys starting with `maap.`) |
 | ✅ **Done** | 9 steps — everything below in [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 19 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | Up to login (`8e9f564`) pushed · the **sign-up form is not committed yet** |
+| 🧩 **Left** | 18 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — the sign-up form is `087a3e6` |
 
 ---
 
@@ -132,7 +132,7 @@ sequenceDiagram
 - ✅ Settings lists the backend's **failover order**, skipped providers greyed out with the key they need
 - ✅ The Inspector names the provider that actually answered (`metadata.provider`)
 
-### 📝 Step 9 — Sign-up form *(Oct 10, ⚠️ not committed yet)*
+### 📝 Step 9 — Sign-up form *(Oct 10, `087a3e6`)*
 
 - ✅ The login page switches between **Log in** and **Create your account**
 - ✅ The sign-up rules shown as a hint, and checked **before** sending (3–50 chars `A–Z a–z 0–9 . _ -`; 8+ char password)
@@ -195,7 +195,7 @@ Frontend/src/
 flowchart LR
     classDef now fill:#fde68a,stroke:#b7791f,color:#3a2a05,font-weight:bold
     classDef later fill:#e5e7eb,stroke:#6b7280,color:#1f2937
-    N["🏁 Now<br/>A2 · A3"] --> FX["🖥️ Fixes<br/>C1 C2 C7"] --> T["🧪 Tests<br/>C5 C6"]
+    N["🏁 Now<br/>A2"] --> FX["🖥️ Fixes<br/>C1 C2 C7"] --> T["🧪 Tests<br/>C5 C6"]
     FX --> CH["💬 Chats<br/>C3 C4"]
     T --> NEW["🌊 Features<br/>F3 F5 F7 F8 F9"]
     CH --> NEW
@@ -208,7 +208,7 @@ flowchart LR
 
 - [ ] **A2** 📝 Turn *Simulation mode* off, then sign up once in the browser; note any error in the
   [errors log](TASKS.md#-setup-errors-log) — 👤 🟢
-- [ ] **A3** 💾 Commit and push the sign-up form (with the backend's MongoDB work) — 🤖 🟢
+- [x] **A3** 💾 Sign-up form committed and pushed (`087a3e6`) — 🤖 🟢
 
 ### 🖥️ C · Fixes
 
