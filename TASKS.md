@@ -28,7 +28,7 @@ Done and left, side by side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md) · [`BAC
 | 🧪 **Tests** | 🟡 Backend: 136 passing (no AI key or network; the account tests need MongoDB running) · Frontend: none |
 | 📚 **Docs** | 🟡 Behind the code — `README.md` still says there's no backend, and links to removed or missing files · 🟢 new: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md), [`BACKEND_STATUS.md`](BACKEND_STATUS.md) |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — MongoDB accounts `bbc501c` · sign-up `44b3856` · sign-up form `087a3e6` |
+| 💾 **Git** | 🟡 Fixes C1 · C2 · C7 committed (`51f174b` · `9de624f` · `32494ce`), **not pushed yet** · everything before is on `origin/main` |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -118,17 +118,26 @@ flowchart LR
 
 ### 🖥️ C · Frontend fixes
 
-- [ ] **C1** 🚪 A broken API address saved in the browser must not lock you out (the login-page 404): `apiBase()`
-  ignores values that fail `isValidApiBase` — `api/client.ts` — 🤖 🟢
-- [ ] **C2** 🔑 The "no API key" hints show `platform.keyEnvVar` instead of a fixed `GROQ_API_KEY` —
-  [`App.tsx:133`](Frontend/src/App.tsx#L133), [`OverviewPage.tsx:89`](Frontend/src/pages/OverviewPage.tsx#L89) — 🤖 🟢
+- [x] **C1** 🚪 A broken API address saved in the browser no longer locks you out (the login-page 404):
+  `apiBase()` drops a saved value that fails `isValidApiBase` and uses `/api` — `api/client.ts` — 🤖 🟢
+  **Checked in a real browser:** a pasted API key and `localhost:8080/api` → removed, login page loads,
+  `/api/auth/me` answers `401` (not `404`) · a valid `/api/` is kept · 💾 `51f174b`
+- [x] **C2** 🔑 The "no API key" hints name the key the backend reports (`platform.keyEnvVar`, the first
+  provider in `AI_PROVIDERS`), not a fixed `GROQ_API_KEY` — `App.tsx` banner, `OverviewPage.tsx` step — 🤖 🟢
+  **Checked in a real browser:** Gemini listed first → `GEMINI_API_KEY` in both · default order →
+  `GROQ_API_KEY` · no key name sent → the sentence still reads, no empty code box · 💾 `9de624f`
 - [ ] **C3** ✏️ Editing an earlier message also rewinds the server's memory (today the server keeps the turns the
   browser dropped) — backend + `PlaygroundPage.tsx` — 🤖 🟡
 - [ ] **C4** 💬 Chats per account, not per browser (two people on one browser see each other's chats) —
   `useConversations.ts`, `lib/storage.ts` — 🤖 🟡
 - [ ] **C5** 🧪 Set up Vitest and write the first tests, for `lib/` — 🤖 🟡
 - [ ] **C6** 🧪 Tests for `api/client.ts`: offline fallback, a `401` sends you to login, problem+json messages — 🤖 🟡
-- [ ] **C7** 🎭 A simulated reply says *why*: "Simulation mode is on (Settings)" when it was chosen, and "the backend is offline" only when it is — today it always says offline — `api/mock.ts` — 🤖 🟢
+- [x] **C7** 🎭 A simulated reply says *why*: *"Simulation mode is on in Settings"* when it was switched on,
+  *"the backend could not be reached"* only when that is true (it always said offline) — `api/mock.ts`,
+  `api/client.ts` — 🤖 🟢 · the mid-chat error no longer says *"Switched to simulation mode"* (the Settings
+  switch stays off) · **Checked in a real browser:** simulation on → the Settings wording, no backend call ·
+  backend down → the offline wording · backend drops mid-chat → error, simulated reply, then a real reply once
+  it is back · 💾 `32494ce`
 
 ### 🧹 D · Backend housekeeping
 
@@ -542,7 +551,7 @@ had `spring.mongodb.uri=${}` (breaks every test) · `AUTH_USERS` and its leftove
 | # | Step | What you did | Error message (paste it exactly) | Status | Fix |
 |---|---|---|---|---|---|
 | 1 | 15 | `mvn spring-boot:run` in `Backend/` | `ApiExceptionHandler.java:[132,37] cannot find symbol` · `class UsernameTakenException` | 🟢 fixed | The file was saved from an older editor copy, which dropped the `import …user.UsernameTakenException` line (and the `400` field-message override). Both restored; 136 tests pass. Tip: if VS Code says the file changed on disk, use *Revert File* before editing |
-| 2 | A2 | Signed in, sent *"hello"* | The reply is tagged **simulated** and says *"the backend is offline"* · console: two `401` on `/api/auth/me` | 🟡 your turn | The backend was up (checked). **Simulation mode** is switched on in this browser (`maap.simulate = true`), so the console never calls it: Settings → turn *Simulation mode* off → *Apply & reconnect*. The two `401`s are normal: on load the page asks "am I signed in?" and the answer is no (twice, because React's dev mode runs that check twice). The wrong wording is to-do **C7** |
+| 2 | A2 | Signed in, sent *"hello"* | The reply is tagged **simulated** and says *"the backend is offline"* · console: two `401` on `/api/auth/me` | 🟡 your turn | The backend was up (checked). **Simulation mode** is switched on in this browser (`maap.simulate = true`), so the console never calls it: Settings → turn *Simulation mode* off → *Apply & reconnect*. The two `401`s are normal: on load the page asks "am I signed in?" and the answer is no (twice, because React's dev mode runs that check twice). The wrong wording is fixed (**C7**): the reply now says *Simulation mode is on in Settings* here |
 | 3 | | | | 🔴 open | |
 
 🔴 open &nbsp;·&nbsp; 🟡 trying a fix &nbsp;·&nbsp; 🟢 fixed

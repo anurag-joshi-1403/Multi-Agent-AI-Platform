@@ -30,8 +30,8 @@
 | 🔌 **Talks to** | The Spring Boot backend through Vite's `/api` proxy — or a built-in **simulation** when it can't |
 | 💾 **Keeps in the browser** | Chats, theme, settings (`localStorage`, keys starting with `maap.`) |
 | ✅ **Done** | 9 steps — everything below in [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 18 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | 🟢 Everything pushed — the sign-up form is `087a3e6` |
+| 🧩 **Left** | 15 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟡 Fixes C1 · C2 · C7 committed, **not pushed yet** · everything before is on `origin/main` |
 
 ---
 
@@ -195,13 +195,15 @@ Frontend/src/
 flowchart LR
     classDef now fill:#fde68a,stroke:#b7791f,color:#3a2a05,font-weight:bold
     classDef later fill:#e5e7eb,stroke:#6b7280,color:#1f2937
-    N["🏁 Now<br/>A2"] --> FX["🖥️ Fixes<br/>C1 C2 C7"] --> T["🧪 Tests<br/>C5 C6"]
+    classDef done fill:#bbf7d0,stroke:#15803d,color:#14532d
+    N["🏁 Now<br/>A2"] --> FX["✅ Fixes<br/>C1 C2 C7"] --> T["🧪 Tests<br/>C5 C6"]
     FX --> CH["💬 Chats<br/>C3 C4"]
     T --> NEW["🌊 Features<br/>F3 F5 F7 F8 F9"]
     CH --> NEW
     NEW --> SHIP["🐳 Ship<br/>G2 · G4"]
     class N now
-    class FX,T,CH,NEW,SHIP later
+    class FX done
+    class T,CH,NEW,SHIP later
 ```
 
 ### 🏁 Now
@@ -212,12 +214,20 @@ flowchart LR
 
 ### 🖥️ C · Fixes
 
-- [ ] **C1** 🚪 A broken API address saved in the browser can't lock you out any more (it caused the login-page
-  `404`): `apiBase()` ignores values that fail `isValidApiBase` — `api/client.ts` — 🤖 🟢
-- [ ] **C2** 🔑 The "no API key" hints show `platform.keyEnvVar`, not a fixed `GROQ_API_KEY` —
-  `App.tsx:133`, `OverviewPage.tsx:89` — 🤖 🟢
-- [ ] **C7** 🎭 A simulated reply says *why*: "Simulation mode is on" when chosen, "backend is offline" only when it
-  is — `api/mock.ts` — 🤖 🟢
+- [x] **C1** 🚪 A broken API address saved in the browser no longer locks you out (the login-page 404):
+  `apiBase()` drops a saved value that fails `isValidApiBase` and uses `/api` — `api/client.ts` — 🤖 🟢
+  **Checked in a real browser:** a pasted API key and `localhost:8080/api` → removed, login page loads,
+  `/api/auth/me` answers `401` (not `404`) · a valid `/api/` is kept · 💾 `51f174b`
+- [x] **C2** 🔑 The "no API key" hints name the key the backend reports (`platform.keyEnvVar`, the first
+  provider in `AI_PROVIDERS`), not a fixed `GROQ_API_KEY` — `App.tsx` banner, `OverviewPage.tsx` step — 🤖 🟢
+  **Checked in a real browser:** Gemini listed first → `GEMINI_API_KEY` in both · default order →
+  `GROQ_API_KEY` · no key name sent → the sentence still reads, no empty code box · 💾 `9de624f`
+- [x] **C7** 🎭 A simulated reply says *why*: *"Simulation mode is on in Settings"* when it was switched on,
+  *"the backend could not be reached"* only when that is true (it always said offline) — `api/mock.ts`,
+  `api/client.ts` — 🤖 🟢 · the mid-chat error no longer says *"Switched to simulation mode"* (the Settings
+  switch stays off) · **Checked in a real browser:** simulation on → the Settings wording, no backend call ·
+  backend down → the offline wording · backend drops mid-chat → error, simulated reply, then a real reply once
+  it is back · 💾 `32494ce`
 - [ ] **C3** ✏️ Editing an earlier message also rewinds the server's memory — 🤖 🟡
   1. Backend: an endpoint that keeps only the first *N* messages of a conversation *(see the backend file)*
   2. `api/client.ts`: `rewindConversation(id, keep)`
