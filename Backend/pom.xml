@@ -72,6 +72,11 @@
 			<artifactId>h2</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- Accounts in MongoDB (the "users" collection) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-mongodb</artifactId>
+		</dependency>
 		<!-- Swaps Spring AI's in-memory chat memory for a JDBC one; AiConfig and the agents don't change -->
 		<dependency>
 			<groupId>org.springframework.ai</groupId>

@@ -68,8 +68,7 @@ public class StubChatModel implements ChatModel {
 
 	/** The platform's default settings: 20 messages of memory, 60 000 chars of file context, 50 uploads. */
 	public static PlatformProperties properties() {
-		return new PlatformProperties(new PlatformProperties.Memory(20), new PlatformProperties.Documents(60_000, 50),
-				new PlatformProperties.Auth(""));
+		return new PlatformProperties(new PlatformProperties.Memory(20), new PlatformProperties.Documents(60_000, 50));
 	}
 
 	/** An attachment resolver over {@code store}, with the default limits. */

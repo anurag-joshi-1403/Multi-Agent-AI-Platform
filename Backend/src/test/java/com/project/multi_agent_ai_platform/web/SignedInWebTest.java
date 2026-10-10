@@ -8,6 +8,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.MockMvcBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 
 import com.project.multi_agent_ai_platform.config.PlatformProperties;
 import com.project.multi_agent_ai_platform.config.SecurityConfig;
@@ -25,5 +27,11 @@ public class SignedInWebTest {
 	@Bean
 	MockMvcBuilderCustomizer signedInByDefault() {
 		return builder -> builder.defaultRequest(get("/").with(user("tester")));
+	}
+
+	/** Controller tests don't load the user/ package, so SecurityConfig gets an empty account list. */
+	@Bean
+	UserDetailsService userDetailsService() {
+		return new InMemoryUserDetailsManager();
 	}
 }

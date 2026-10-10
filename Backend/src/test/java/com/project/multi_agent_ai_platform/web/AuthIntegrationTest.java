@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -18,13 +19,17 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.project.multi_agent_ai_platform.user.UserStore;
+
 /**
  * The real login flow against the whole application, with no "signed in by default" shortcut: the
  * one place that proves the session itself works and that nothing under {@code /api} is open.
+ * Accounts live in MongoDB ({@code agents_test} database), so MongoDB must be running.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -32,6 +37,20 @@ class AuthIntegrationTest {
 
 	@Autowired
 	MockMvc mvc;
+
+	@Autowired
+	UserStore users;
+
+	@Autowired
+	PasswordEncoder encoder;
+
+	/** The account the login tests sign in with, created once in the test database. */
+	@BeforeEach
+	void testerExists() {
+		if (users.findByUsername("tester").isEmpty()) {
+			users.create("tester", encoder.encode("tester-password"));
+		}
+	}
 
 	private ResultActions login(String username, String password) throws Exception {
 		return mvc.perform(post("/api/auth/login")
