@@ -145,8 +145,15 @@ function Console({ auth, theme, toggleTheme }: { auth: AuthApi; theme: Theme; to
           <div className="banner banner-info" role="status">
             <strong>No API key.</strong>
             <span>
-              Backend is online but no model provider has a key, so agent runs will fail. Set one (e.g.{' '}
-              <code>GROQ_API_KEY</code>) in the backend's environment or <code>Backend/.env</code> and restart it.
+              Backend is online but no model provider has a key, so agent runs will fail. Set one
+              {/* The key of the provider tried first, which follows AI_PROVIDERS (Groq unless reordered) */}
+              {platform.keyEnvVar && (
+                <>
+                  {' '}
+                  (e.g. <code>{platform.keyEnvVar}</code>)
+                </>
+              )}{' '}
+              in the backend's environment or <code>Backend/.env</code> and restart it.
             </span>
             <span className="spacer" />
             <a className="btn btn-sm" href="#/settings">
