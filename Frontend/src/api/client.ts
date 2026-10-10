@@ -1,5 +1,5 @@
 import type { AgentInfo, AgentRequest, AgentResponse, DocumentSummary, PlatformStatus, ProviderStatus } from '../types'
-import { loadString, STORAGE_KEYS } from '../lib/storage'
+import { loadString, saveString, STORAGE_KEYS } from '../lib/storage'
 import { isRecord, titleCase } from '../lib/util'
 import { MOCK_AGENTS, MOCK_PLATFORM, mockDeleteDocument, mockRun, mockUploadDocument } from './mock'
 
@@ -87,8 +87,14 @@ export function defaultApiBase(): string {
 }
 
 export function apiBase(): string {
-  const stored = loadString(STORAGE_KEYS.apiBase)
-  if (stored && stored.trim()) return stored.trim().replace(/\/+$/, '')
+  const stored = loadString(STORAGE_KEYS.apiBase)?.trim()
+  if (stored) {
+    if (isValidApiBase(stored)) return stored.replace(/\/+$/, '')
+    // Saved before Settings checked this field (once an API key pasted here). Every call would
+    // 404 — including login, so Settings could never be reached to fix it — and the value may be
+    // a secret, so drop it and fall back to the default.
+    saveString(STORAGE_KEYS.apiBase, null)
+  }
   return defaultApiBase()
 }
 
