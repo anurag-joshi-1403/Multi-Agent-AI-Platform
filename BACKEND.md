@@ -10,7 +10,7 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-6db33f?logo=springboot&logoColor=white)](#-start-from-zero)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0-6db33f)](#-phase-2--first-agent)
 [![Maven](https://img.shields.io/badge/Build-Maven-c71a36?logo=apachemaven&logoColor=white)](#-start-from-zero)
-[![Status](https://img.shields.io/badge/Status-Not%20started-f87171)](#-roadmap-at-a-glance)
+[![Status](https://img.shields.io/badge/Phases%200--6-done-34d399)](#-roadmap-at-a-glance)
 
 </div>
 
@@ -45,23 +45,28 @@ flowchart LR
 ```mermaid
 flowchart LR
     classDef todo fill:#fde68a,stroke:#b7791f,color:#3a2a05,font-weight:bold
+    classDef done fill:#bbf7d0,stroke:#15803d,color:#14532d
     P0["🧹 0<br/>Get ready"] --> P1["🧱 1<br/>Skeleton"] --> P2["🤖 2<br/>First agent"] --> P3["🧠 3<br/>More agents<br/>+ memory"]
     P3 --> P4["📎 4<br/>Files"] --> P5["🔐 5<br/>Login"] --> P6["🔁 6<br/>Provider failover"] --> P7["🚀 7<br/>Launch & extras"]
-    class P0,P1,P2,P3,P4,P5,P6,P7 todo
+    class P0,P1,P2,P3,P4,P5,P6 done
+    class P7 todo
 ```
 
 | Phase | What you get | What the console shows | Status |
 |---|---|---|---|
-| 🧹 **0 · Get ready** | New key, tools installed | — | 🔴 |
-| 🧱 **1 · Skeleton** | An empty app running on port 8080 | Still simulated | 🔴 |
-| 🤖 **2 · First agent** | Real replies from one agent | **Backend online** | 🔴 |
-| 🧠 **3 · More agents + memory** | Four agents that remember the chat | Agents page filled in | 🔴 |
-| 📎 **4 · Files** | PDF attachments; data survives a restart | Paperclip works | 🔴 |
-| 🔐 **5 · Login** | Only signed-in users get in | Real login | 🔴 |
-| 🔁 **6 · Provider failover** | The next AI provider takes over when one fails | Settings shows the chain | 🔴 |
-| 🚀 **7 · Launch & extras** | Streaming, Docker, automatic checks | Word-by-word replies | 🔴 |
+| 🧹 **0 · Get ready** | New key, tools installed | — | 🟢 |
+| 🧱 **1 · Skeleton** | An empty app running on port 8080 | Still simulated | 🟢 |
+| 🤖 **2 · First agent** | Real replies from one agent | **Backend online** | 🟢 |
+| 🧠 **3 · More agents + memory** | Four agents that remember the chat | Agents page filled in | 🟢 |
+| 📎 **4 · Files** | PDF attachments; data survives a restart | Paperclip works | 🟢 |
+| 🔐 **5 · Login** | Only signed-in users get in | Real login | 🟢 |
+| 🔁 **6 · Provider failover** | The next AI provider takes over when one fails | Settings shows the chain | 🟢 |
+| 🚀 **7 · Launch & extras** | Streaming, Docker, automatic checks | Word-by-word replies | 🟡 |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
+
+> ✅ **Built beyond this plan:** accounts in MongoDB with sign-up ([`DATABASE.md`](DATABASE.md)) and edits that
+> rewind the chat memory. Day-to-day status: [`BACKEND_STATUS.md`](BACKEND_STATUS.md) · what's left: [`TASKS.md`](TASKS.md).
 
 ---
 
@@ -300,8 +305,8 @@ and the Inspector names it.
 
 - 🌊 **Streaming** — replies appear word by word: `POST /api/agents/{id}/stream`
 - 🧭 **Auto-pick** the right agent · 🌐 **web search** for the Research Agent
-- 👥 **Accounts in the database** — sign-up, password reset, Google sign-in
-- 🐳 **Docker** — `Dockerfile` and `compose.yaml` with Postgres
+- 👥 **Accounts in the database** — ✅ sign-up done (MongoDB, [`DATABASE.md`](DATABASE.md)) · still to do: password reset, Google sign-in
+- 🐳 **Docker** — `Dockerfile` and `compose.yaml` with MongoDB
 - 🔒 **HTTPS** and rate limits
 - 🤖 **CI** — `.github/workflows/ci.yml` runs the tests and the frontend build on every push
 
@@ -370,6 +375,8 @@ sequenceDiagram
 | 🧠 3 | `DELETE` | `/api/conversations/{id}` | Forget a chat |
 | 📎 4 | `POST` · `DELETE` | `/api/documents` · `/api/documents/{id}` | Attach or remove a file |
 | 🔐 5 | `POST` · `POST` · `GET` | `/api/auth/login` · `/logout` · `/me` | Sign in and out |
+| 🍃 5+ | `POST` | `/api/auth/signup` | Create an account (MongoDB) |
+| ✏️ 3+ | `POST` | `/api/conversations/{id}/rewind` | Forget the turns an edited message replaces |
 | 🚀 7 | `POST` | `/api/agents/{id}/stream` | Word-by-word replies |
 
 The JSON field names must match [`Frontend/src/types.ts`](Frontend/src/types.ts) exactly.
@@ -400,5 +407,5 @@ git show 434d0ed^:Frontend/src/hooks/useAuth.ts
 > ⚠️ Don't copy the old `application.properties` — it contains the leaked key.
 
 <div align="center">
-<sub>🧭 Roadmap for <code>Backend/</code> · see <a href="PROGRESS.md">PROGRESS.md</a> for project history and <a href="README.md">README.md</a> for how to run it</sub>
+<sub>🧭 Roadmap for <code>Backend/</code> · see <a href="TASKS.md">TASKS.md</a> for what's left and <a href="README.md">README.md</a> for how to run it</sub>
 </div>
