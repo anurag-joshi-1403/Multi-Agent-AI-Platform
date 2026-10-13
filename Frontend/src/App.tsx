@@ -49,14 +49,23 @@ function App() {
     )
   }
 
-  return <Console auth={auth} theme={theme} toggleTheme={toggleTheme} />
+  // Keyed by account: signing in as someone else starts the console, and its saved chats, afresh
+  const username = auth.user?.username ?? ''
+  return <Console key={username} username={username} auth={auth} theme={theme} toggleTheme={toggleTheme} />
 }
 
-function Console({ auth, theme, toggleTheme }: { auth: AuthApi; theme: Theme; toggleTheme: () => void }) {
+interface ConsoleProps {
+  username: string
+  auth: AuthApi
+  theme: Theme
+  toggleTheme: () => void
+}
+
+function Console({ username, auth, theme, toggleTheme }: ConsoleProps) {
   const [route, navigate] = useHashRoute()
   const [sidebarCollapsed, toggleSidebar] = useAutoCollapseOnRoute(route)
   const { agents, loading, reload } = useAgents()
-  const conversations = useConversations()
+  const conversations = useConversations(username)
   const status = useBackendStatus()
   const platform = usePlatform()
   // Agent picked for a conversation that hasn't been created yet (survives page switches).

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { blockedStorage, memoryStorage } from '../test/fakes'
-import { loadJson, loadString, saveJson, saveString } from './storage'
+import { clearAllConversations, conversationsKey, loadJson, loadString, saveJson, saveString } from './storage'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -49,5 +49,29 @@ describe('storage helpers', () => {
     vi.stubGlobal('localStorage', storage)
     expect(() => saveJson('k', { big: 'x'.repeat(1000) })).not.toThrow()
     expect(loadJson('k')).toBeUndefined()
+  })
+})
+
+describe('saved chats per account', () => {
+  it('keeps each account under its own key', () => {
+    expect(conversationsKey('anna')).toBe('maap.conversations.anna')
+    expect(conversationsKey('ben.k')).not.toBe(conversationsKey('anna'))
+  })
+
+  it("clears every account's chats and the old shared list, and nothing else", () => {
+    const storage = memoryStorage()
+    vi.stubGlobal('localStorage', storage)
+    for (const key of ['maap.conversations', 'maap.conversations.anna', 'maap.conversations.ben', 'maap.theme', 'maap.conversationsBackup']) {
+      storage.setItem(key, '[]')
+    }
+
+    clearAllConversations()
+
+    expect(Array.from({ length: storage.length }, (_, i) => storage.key(i))).toEqual(['maap.theme', 'maap.conversationsBackup'])
+  })
+
+  it('clears without throwing when the browser blocks storage', () => {
+    vi.stubGlobal('localStorage', blockedStorage())
+    expect(() => clearAllConversations()).not.toThrow()
   })
 })

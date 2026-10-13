@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { loadJson, saveJson, STORAGE_KEYS } from '../lib/storage'
+import { conversationsKey, loadJson, saveJson, saveString, STORAGE_KEYS } from '../lib/storage'
 import { isRecord, truncate, uid } from '../lib/util'
 import type { Attachment, ChatMessage, Conversation, MessageRole } from '../types'
 
@@ -65,18 +65,39 @@ function toConversation(v: unknown): Conversation | null {
   }
 }
 
-function loadConversations(): Conversation[] {
-  const raw = loadJson(STORAGE_KEYS.conversations)
-  if (!Array.isArray(raw)) return []
-  return raw.map(toConversation).filter((c): c is Conversation => c !== null)
+/**
+ * The chats saved for one account (`key` from `conversationsKey`). When it has none yet, the
+ * shared list saved before chats were kept per account is used instead (`fromShared`), so those
+ * chats go to the first account that signs in. Reading only: the hook moves them when it saves.
+ */
+export function loadConversations(key: string): { list: Conversation[]; fromShared: boolean } {
+  let raw = loadJson(key)
+  let fromShared = false
+  if (raw === undefined) {
+    const shared = loadJson(STORAGE_KEYS.conversations)
+    if (shared !== undefined) {
+      raw = shared
+      fromShared = true
+    }
+  }
+  const list = Array.isArray(raw) ? raw.map(toConversation).filter((c): c is Conversation => c !== null) : []
+  return { list, fromShared }
 }
 
-export function useConversations(): ConversationsApi {
-  const [conversations, setConversations] = useState<Conversation[]>(() => sortByUpdated(loadConversations()))
+/**
+ * The signed-in account's chats, saved in this browser under its own key. The console is keyed by
+ * username (`App.tsx`), so another account always starts this hook fresh.
+ */
+export function useConversations(username: string): ConversationsApi {
+  const key = conversationsKey(username)
+  const [loaded] = useState(() => loadConversations(key))
+  const [conversations, setConversations] = useState<Conversation[]>(() => sortByUpdated(loaded.list))
 
   useEffect(() => {
-    saveJson(STORAGE_KEYS.conversations, conversations)
-  }, [conversations])
+    saveJson(key, conversations)
+    // Moved under this account now, so the shared list must not reach a second account too
+    if (loaded.fromShared) saveString(STORAGE_KEYS.conversations, null)
+  }, [key, conversations, loaded.fromShared])
 
   const create = useCallback((agentId: string): Conversation => {
     const now = Date.now()

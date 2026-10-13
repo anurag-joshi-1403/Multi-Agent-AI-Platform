@@ -1,6 +1,6 @@
 import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
-import { saveString, STORAGE_KEYS } from '../lib/storage'
+import { clearAllConversations } from '../lib/storage'
 
 interface Props {
   children: ReactNode
@@ -28,7 +28,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private clearConversations = () => {
     if (!window.confirm('Delete all conversations saved in this browser and reload? This cannot be undone.')) return
-    saveString(STORAGE_KEYS.conversations, null)
+    // Every account's chats: this screen can't tell whose list caused the crash
+    clearAllConversations()
     window.location.reload()
   }
 

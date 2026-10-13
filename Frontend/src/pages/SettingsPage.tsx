@@ -56,7 +56,7 @@ export function SettingsPage({
 
   function clearData() {
     if (conversationCount === 0) return
-    if (window.confirm(`Delete all ${conversationCount} local conversations? This cannot be undone.`)) {
+    if (window.confirm(`Delete all ${conversationCount} of your conversations saved in this browser? This cannot be undone.`)) {
       onClearConversations()
     }
   }
@@ -219,7 +219,7 @@ export function SettingsPage({
             <div className="field">
               <span className="field-label">Conversations</span>
               <span className="hint">
-                {conversationCount} conversation{conversationCount === 1 ? '' : 's'} saved in this browser's storage.
+                {conversationCount} conversation{conversationCount === 1 ? '' : 's'} of yours saved in this browser's storage.
               </span>
             </div>
             <button type="button" className="btn btn-danger" onClick={clearData} disabled={conversationCount === 0}>
