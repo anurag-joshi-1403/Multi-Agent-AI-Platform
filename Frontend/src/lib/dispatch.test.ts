@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { runAgent } from '../api/client'
+import { rewindConversation, runAgent } from '../api/client'
 import type { ConversationsApi } from '../hooks/useConversations'
-import { dispatchMessage } from './dispatch'
+import type { ChatMessage } from '../types'
+import { dispatchMessage, serverTurnsFrom } from './dispatch'
 
-vi.mock('../api/client', () => ({ runAgent: vi.fn() }))
+vi.mock('../api/client', () => ({ runAgent: vi.fn(), rewindConversation: vi.fn() }))
 
 const run = vi.mocked(runAgent)
+const rewind = vi.mocked(rewindConversation)
 
 function fakeConversations() {
   return {
@@ -19,6 +21,41 @@ const asApi = (c: ReturnType<typeof fakeConversations>) => c as unknown as Conve
 
 beforeEach(() => {
   run.mockReset()
+  rewind.mockReset()
+})
+
+describe('serverTurnsFrom', () => {
+  const msg = (id: string, role: ChatMessage['role'], metadata?: Record<string, unknown>): ChatMessage => ({
+    id,
+    role,
+    content: id,
+    createdAt: 0,
+    metadata,
+  })
+  // A real reply, a failed run, a simulated reply, a real reply, then a message still waiting
+  const transcript = [
+    msg('q1', 'user'),
+    msg('a1', 'agent', { model: 'm' }),
+    msg('q2', 'user'),
+    msg('e2', 'error'),
+    msg('q3', 'user'),
+    msg('a3', 'agent', { simulated: true }),
+    msg('q4', 'user'),
+    msg('a4', 'agent', {}),
+    msg('q5', 'user'),
+  ]
+
+  it('counts only turns a real backend reply answered', () => {
+    expect(serverTurnsFrom(transcript, 0)).toBe(2)
+    expect(serverTurnsFrom(transcript, 2)).toBe(1)
+    expect(serverTurnsFrom(transcript, 6)).toBe(1)
+  })
+
+  it('is 0 when the server never saw the edited turn or anything after it', () => {
+    expect(serverTurnsFrom(transcript, 8)).toBe(0)
+    expect(serverTurnsFrom(transcript.slice(2, 6), 0)).toBe(0)
+    expect(serverTurnsFrom([], 0)).toBe(0)
+  })
 })
 
 describe('dispatchMessage', () => {
@@ -61,6 +98,17 @@ describe('dispatchMessage', () => {
     expect(c.updateMessage).toHaveBeenCalledWith('conv-1', 'msg-7', { content: 'Edited text', editedAt: expect.any(Number) })
     expect(c.appendMessage).toHaveBeenCalledTimes(1)
     expect(c.appendMessage.mock.calls[0][1]).toMatchObject({ role: 'agent', content: 'New answer' })
+    expect(rewind).not.toHaveBeenCalled()
+  })
+
+  it('makes the server forget the replaced turns before the agent answers the edit', async () => {
+    run.mockResolvedValue({ agentId: 'general', content: 'New answer', metadata: {} })
+    const c = fakeConversations()
+
+    await dispatchMessage(asApi(c), 'conv-1', 'general', 'Edited text', {}, { replaceMessageId: 'msg-7', forgetTurns: 2 })
+
+    expect(rewind).toHaveBeenCalledWith('conv-1', 2)
+    expect(rewind.mock.invocationCallOrder[0]).toBeLessThan(run.mock.invocationCallOrder[0])
   })
 
   it('turns a failed run into an error message instead of throwing', async () => {

@@ -16,6 +16,7 @@ import { MOCK_AGENTS, MOCK_PLATFORM, mockDeleteDocument, mockRun, mockUploadDocu
  *   POST   /api/documents (multipart)    -> DocumentSummary
  *   DELETE /api/documents/{id}
  *   DELETE /api/conversations/{id}       (forget server-side memory)
+ *   POST   /api/conversations/{id}/rewind <- {turns}    (forget the latest turns, for edit-and-resend)
  *
  * Every route except signup/login/logout needs the session cookie. Errors follow RFC 9457 problem+json.
  */
@@ -345,5 +346,18 @@ export async function forgetConversation(id: string): Promise<void> {
     await http<void>(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' })
   } catch {
     // the client-side transcript is already gone; a stale memory window is harmless
+  }
+}
+
+/**
+ * Make the server forget the last `turns` turns of a conversation, before an edited message is
+ * sent again. Best effort: never throws — if it fails, the edit still goes out.
+ */
+export async function rewindConversation(id: string, turns: number): Promise<void> {
+  if (simulated() || turns < 1) return
+  try {
+    await http<void>(`/conversations/${encodeURIComponent(id)}/rewind`, { method: 'POST', body: JSON.stringify({ turns }) })
+  } catch {
+    // the agent may still remember the dropped turns; the resend itself is unaffected
   }
 }

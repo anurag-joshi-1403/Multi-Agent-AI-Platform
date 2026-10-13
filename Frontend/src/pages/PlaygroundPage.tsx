@@ -14,7 +14,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import { agentThemeStyle } from '../lib/agentColor'
 import { buildAttributes } from '../lib/attributes'
 import type { ParameterValues } from '../lib/attributes'
-import { dispatchMessage } from '../lib/dispatch'
+import { dispatchMessage, serverTurnsFrom } from '../lib/dispatch'
 import type { DispatchOptions } from '../lib/dispatch'
 import { loadString, saveString, STORAGE_KEYS } from '../lib/storage'
 import type { AgentInfo, Attachment, ChatMessage } from '../types'
@@ -210,7 +210,10 @@ export function PlaygroundPage({
     await runDispatch(conv.id, conv.agentId, text, attributes, { attachments: added })
   }
 
-  /** Edit a previously-sent prompt: drop the stale reply after it, then resend with the new text. */
+  /**
+   * Edit a previously-sent prompt: drop everything after it — here and in the server's memory —
+   * then resend with the new text.
+   */
   async function editMessage(messageId: string, text: string) {
     // A reply still in flight would land after the edited turn (and clear the pending flag early).
     if (!active || pending.has(active.id)) return
@@ -219,8 +222,10 @@ export function PlaygroundPage({
     const original = active.messages[idx]
     // Only files attached up to and including this turn — the truncated ones are gone.
     const attributes = { ...(original.attributes ?? {}), ...withAttachments(active.messages.slice(0, idx + 1), []) }
+    // Counted before truncating: this turn and every later one the server remembers
+    const forgetTurns = serverTurnsFrom(active.messages, idx)
     conversations.truncateAfter(active.id, messageId)
-    await runDispatch(active.id, active.agentId, text, attributes, { replaceMessageId: messageId })
+    await runDispatch(active.id, active.agentId, text, attributes, { replaceMessageId: messageId, forgetTurns })
   }
 
   function onDragOver(e: DragEvent<HTMLElement>) {

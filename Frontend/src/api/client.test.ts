@@ -230,6 +230,36 @@ describe('with the backend up', () => {
     await expect(client.forgetConversation('conv-1')).resolves.toBeUndefined()
     expect(fetchMock).toHaveBeenLastCalledWith('/api/conversations/conv-1', expect.objectContaining({ method: 'DELETE' }))
   })
+
+  it('asks the server to forget the latest turns before an edit is resent', async () => {
+    serve({ ...ONLINE, 'POST /api/conversations/conv-1/rewind': () => new Response(null, { status: 204 }) })
+    await client.listAgents()
+
+    await expect(client.rewindConversation('conv-1', 2)).resolves.toBeUndefined()
+
+    const [url, init] = fetchMock.mock.calls[1]
+    expect(url).toBe('/api/conversations/conv-1/rewind')
+    expect(init?.headers).toEqual({ Accept: 'application/json', 'Content-Type': 'application/json' })
+    expect(JSON.parse(String(init?.body))).toEqual({ turns: 2 })
+  })
+
+  it('lets an edit go ahead when the rewind fails, e.g. on an older backend', async () => {
+    serve({ ...ONLINE, 'POST /api/conversations/conv-1/rewind': () => problem(404, 'Not Found', 'No endpoint') })
+    await client.listAgents()
+
+    await expect(client.rewindConversation('conv-1', 1)).resolves.toBeUndefined()
+  })
+
+  it('does not call the server for nothing to forget, or in Simulation mode', async () => {
+    serve(ONLINE)
+    await client.listAgents()
+    await client.rewindConversation('conv-1', 0)
+    storage.setItem('maap.simulate', 'true')
+    await client.listAgents()
+    await client.rewindConversation('conv-1', 2)
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(['/api/agents'])
+  })
 })
 
 describe('a 401 sends you to the login page', () => {
