@@ -6,7 +6,7 @@ export function uid(): string {
 export function formatRelative(ts: number, now = Date.now()): string {
   const diff = Math.max(0, now - ts)
   const s = Math.floor(diff / 1000)
-  if (s < 45) return 'just now'
+  if (s < 60) return 'just now'
   const m = Math.floor(s / 60)
   if (m < 60) return `${m}m ago`
   const h = Math.floor(m / 60)
@@ -17,7 +17,8 @@ export function formatRelative(ts: number, now = Date.now()): string {
 }
 
 export function formatMs(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)} ms`
+  // Compare the rounded value: 999.6 would otherwise print as "1000 ms"
+  if (Math.round(ms) < 1000) return `${Math.round(ms)} ms`
   return `${(ms / 1000).toFixed(2)} s`
 }
 
