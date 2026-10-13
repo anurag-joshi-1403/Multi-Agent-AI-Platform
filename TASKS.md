@@ -21,14 +21,14 @@ Done and left, side by side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md) · [`BAC
 
 | | |
 |---|---|
-| 🖥️ **Frontend** | 🟢 Finished — lint ✅ build ✅ tests ✅ (62), runs on its own with **simulated** replies |
+| 🖥️ **Frontend** | 🟢 Finished — lint ✅ build ✅ tests ✅ (69), runs on its own with **simulated** replies |
 | ⚙️ **Backend** | 🟡 5 agents · **5 AI providers with failover** · uploads · H2 storage · login · Phase 7 to go |
 | 🔐 **Login** | 🟢 Real session login · **sign-up + login against MongoDB** (`AUTH_USERS` is gone) |
 | 🍃 **Accounts DB** | 🟢 MongoDB set up and checked — [checklist](#-mongodb-accounts--manual-setup), code explained in [`DATABASE.md`](DATABASE.md) |
-| 🧪 **Tests** | 🟢 Backend: 146 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 62 passing (`npm test`) |
+| 🧪 **Tests** | 🟢 Backend: 146 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 69 passing (`npm test`) |
 | 📚 **Docs** | 🟡 Behind the code — `README.md` still says there's no backend, and links to removed or missing files · 🟢 new: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md), [`BACKEND_STATUS.md`](BACKEND_STATUS.md) |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: C3 edit rewind (`ee14263` · `bdfeb18`) |
+| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: C4 per-account chats (`af776c7`), C8 (`1c7c3a0`) |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -131,8 +131,11 @@ flowchart LR
   backend `ConversationRewind`, `lib/dispatch.ts`, `PlaygroundPage.tsx` — 🤖 🟡 · turns are counted **from the
   end** (still right once the 20-message window dropped the oldest), and only turns a real backend reply
   answered count · **Checked in a real browser:** three turns (41 · green · Paris), then the 2nd edited into "what did I ask you to remember?" → `rewind {turns: 2}` and the answer **41**; the same chat without the edit answers 41, green, Paris · 💾 `ee14263` `bdfeb18`
-- [ ] **C4** 💬 Chats per account, not per browser (two people on one browser see each other's chats) —
-  `useConversations.ts`, `lib/storage.ts` — 🤖 🟡
+- [x] **C4** 💬 Chats per account, not per browser: saved under `maap.conversations.<username>`, and the console
+  is keyed by username, so another account starts fresh; the old shared list moves to the first account that
+  signs in — `lib/storage.ts`, `useConversations.ts`, `App.tsx` — 🤖 🟡 · **Checked in a real browser** through
+  the login form and Sign out: anna gets the old chat · ben sees none of anna's · anna again sees only hers ·
+  ⚠️ this keeps chats apart in the console only: the browser's dev tools still show every account's chats · 💾 `af776c7`
 - [x] **C5** 🧪 Vitest set up (`npm test`) with the first 32 tests, for `lib/`: `util`, `attributes`, `agentColor` (every
   chat colour keeps white text at WCAG 4.5:1), `storage` (never throws when blocked or full), `dispatch` (send,
   edit & resend, errors) — 🤖 🟡 · **Found and fixed 2 bugs** in `lib/util.ts`: a chat 45–59 s old said
@@ -147,9 +150,9 @@ flowchart LR
   switch stays off) · **Checked in a real browser:** simulation on → the Settings wording, no backend call ·
   backend down → the offline wording · backend drops mid-chat → error, simulated reply, then a real reply once
   it is back · 💾 `32494ce`
-- [ ] **C8** 🛡️ `npm audit`: update `source-map-js` 1.2.1 → 1.2.2 (it comes with Vite → postcss; high, but only a
-  crafted source map can hang the build tools, not the app) — after Oct 14, when 1.2.2 is two weeks old:
-  `npm audit fix`, then `npm test`, lint, build — 🤖 🟢
+- [x] **C8** 🛡️ `npm audit`: `source-map-js` 1.2.1 → 1.2.2 (it comes with Vite → postcss; a crafted source map
+  could hang the build tools) — 🤖 🟢 · done Oct 13 with `npm update source-map-js --before=2026-10-01`: the
+  only package that changed · `npm audit`: **0 vulnerabilities** · tests, lint, build pass · 💾 `1c7c3a0`
 
 ### 🧹 D · Backend housekeeping
 
@@ -403,7 +406,7 @@ sequenceDiagram
 > one manual try. Also by design: login needs the backend (no offline bypass), and restarting the backend signs
 > everyone out (sessions live in memory).
 
-- ➡️ 💬 (to-do **C4**) Chats are stored per **browser**, not per account: two people sharing a browser see each other's chats
+- ✅ 💬 Closed (to-do **C4**, Oct 13): chats are saved per account, so two people sharing a browser no longer see each other's chats
 
 ### 🔁 Phase 6 — Provider failover
 
