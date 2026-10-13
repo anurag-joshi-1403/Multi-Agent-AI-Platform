@@ -11,7 +11,7 @@
 [![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)](Frontend/vite.config.ts)
 [![Deps](https://img.shields.io/badge/runtime%20deps-react%20only-34d399)](#-at-a-glance)
 [![Checks](https://img.shields.io/badge/lint%20%2B%20build-passing-34d399)](#-checks)
-[![Tests](https://img.shields.io/badge/tests-56%20passing-34d399)](#-checks)
+[![Tests](https://img.shields.io/badge/tests-62%20passing-34d399)](#-checks)
 
 </div>
 
@@ -29,9 +29,9 @@
 | 📄 **Pages** | 🔐 Login / sign-up · 🏠 Overview · 💬 Playground · 🤖 Agents · ⚙️ Settings |
 | 🔌 **Talks to** | The Spring Boot backend through Vite's `/api` proxy — or a built-in **simulation** when it can't |
 | 💾 **Keeps in the browser** | Chats, theme, settings (`localStorage`, keys starting with `maap.`) |
-| ✅ **Done** | 10 steps — everything below in [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 14 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | 🟢 Everything pushed — fixes C1 · C2 · C7, tests C5 · C6 |
+| ✅ **Done** | 11 steps — everything below in [Work done](#-work-done--step-by-step) |
+| 🧩 **Left** | 13 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — latest: C3 edit rewind (`bdfeb18`) |
 
 ---
 
@@ -146,6 +146,12 @@ sequenceDiagram
 - ✅ `api/client.ts`: offline fallback, Simulation mode, a `401` → login page, error messages, uploads, a bad saved API address
 - ✅ Proved useful: 2 bugs found and fixed on the way; 7 deliberate breaks of `client.ts` all caught
 
+### ✏️ Step 11 — Edits rewind the server's memory *(Oct 13, `bdfeb18`)*
+
+- ✅ Editing an earlier message makes the server forget that turn and the ones after it, then resends
+- ✅ `serverTurnsFrom()` counts only turns a real backend reply answered (not errors, not simulated replies)
+- ✅ `rewindConversation()` in `api/client.ts` — best effort: if it fails, the edit still goes out
+
 ---
 
 ## 📁 What's where
@@ -179,6 +185,7 @@ Frontend/src/
 | ⚙️ | `GET /api/platform` | Provider chain, model, limits (Settings, Overview) |
 | 📎 | `POST /api/documents` · `DELETE /api/documents/{id}` | Attach / remove a file |
 | 🗑️ | `DELETE /api/conversations/{id}` | Forget a chat on the server when you delete it |
+| ✏️ | `POST /api/conversations/{id}/rewind` | Forget the turns an edited message replaces |
 
 ### 🧪 Checks
 
@@ -186,7 +193,7 @@ Frontend/src/
 |---|---|
 | `npm run lint` (ESLint, React 19 rules) | 🟢 passing |
 | `npm run build` (type-check + bundle) | 🟢 passing — ~308 kB JS, ~50 kB CSS |
-| `npm test` (Vitest) | 🟢 56 passing in 6 files — `lib/` and `api/client.ts`, no backend or browser needed |
+| `npm test` (Vitest) | 🟢 62 passing in 6 files — `lib/` and `api/client.ts`, no backend or browser needed |
 
 > ⚠️ **Right now in your browser:** *Simulation mode* is on (`maap.simulate = true`), so replies are simulated even
 > though the backend is up. Settings → turn *Simulation mode* off → *Apply & reconnect*. The two red `401`s on
@@ -205,7 +212,7 @@ flowchart LR
     classDef later fill:#e5e7eb,stroke:#6b7280,color:#1f2937
     classDef done fill:#bbf7d0,stroke:#15803d,color:#14532d
     N["🏁 Now<br/>A2"] --> FX["✅ Fixes<br/>C1 C2 C7"] --> T["✅ Tests<br/>C5 C6"]
-    FX --> CH["💬 Chats<br/>C3 C4"]
+    FX --> CH["💬 Chats<br/>C4"]
     T --> NEW["🌊 Features<br/>F3 F5 F7 F8 F9"]
     CH --> NEW
     NEW --> SHIP["🐳 Ship<br/>G2 · G4"]
@@ -239,11 +246,11 @@ flowchart LR
 - [ ] **C8** 🛡️ `npm audit`: update `source-map-js` 1.2.1 → 1.2.2 (it comes with Vite → postcss; high, but only a
   crafted source map can hang the build tools, not the app) — after Oct 14, when 1.2.2 is two weeks old:
   `npm audit fix`, then `npm test`, lint, build — 🤖 🟢
-- [ ] **C3** ✏️ Editing an earlier message also rewinds the server's memory — 🤖 🟡
-  1. Backend: an endpoint that keeps only the first *N* messages of a conversation *(see the backend file)*
-  2. `api/client.ts`: `rewindConversation(id, keep)`
-  3. `PlaygroundPage.editMessage`: call it before resending
-  4. Check: edit the 1st of 3 turns → the reply no longer mentions turns 2–3
+- [x] **C3** ✏️ Editing an earlier message also rewinds the server's memory: the console asks
+  `POST /api/conversations/{id}/rewind {turns}` to forget that turn and the ones after it, then resends —
+  backend `ConversationRewind`, `lib/dispatch.ts`, `PlaygroundPage.tsx` — 🤖 🟡 · turns are counted **from the
+  end** (still right once the 20-message window dropped the oldest), and only turns a real backend reply
+  answered count · **Checked in a real browser:** three turns (41 · green · Paris), then the 2nd edited into "what did I ask you to remember?" → `rewind {turns: 2}` and the answer **41**; the same chat without the edit answers 41, green, Paris · 💾 `ee14263` `bdfeb18`
 - [ ] **C4** 💬 Chats belong to an account, not to the browser — 🤖 🟡
   1. `lib/storage.ts`: the chats key includes the username (`maap.conversations.<user>`)
   2. `useConversations`: load and save under the signed-in user

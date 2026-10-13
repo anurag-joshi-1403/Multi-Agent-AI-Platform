@@ -9,7 +9,7 @@
 [![Java](https://img.shields.io/badge/Java-25-f89820?logo=openjdk&logoColor=white)](Backend/pom.xml)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6db33f?logo=springboot&logoColor=white)](Backend/pom.xml)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.1-6db33f)](Backend/pom.xml)
-[![Tests](https://img.shields.io/badge/tests-136%20passing-34d399)](#-checks)
+[![Tests](https://img.shields.io/badge/tests-146%20passing-34d399)](#-checks)
 [![H2](https://img.shields.io/badge/H2-files%20%2B%20memory-1f6feb)](#-where-data-lives)
 [![MongoDB](https://img.shields.io/badge/MongoDB-accounts-47A248?logo=mongodb&logoColor=white)](#-where-data-lives)
 
@@ -27,13 +27,13 @@
 |---|---|
 | 🤖 **Agents** | 5 — General · Coding · Research · Summarizer · Document |
 | ☁️ **AI providers** | 5 with automatic failover — Groq → OpenRouter → Gemini → OpenAI → Claude (order from `AI_PROVIDERS`) |
-| 🔌 **Endpoints** | 11 under `/api` + `/actuator/health` |
+| 🔌 **Endpoints** | 12 under `/api` + `/actuator/health` |
 | 🔐 **Login** | Session cookie · sign-up and accounts in **MongoDB** · BCrypt passwords |
 | 🗄️ **Storage** | Uploads + chat memory in an **H2 file** (`Backend/data/`) · accounts in **MongoDB** |
-| 🧪 **Tests** | 136 passing (no AI key or network needed; account tests need MongoDB running) |
-| ✅ **Done** | Phases 0–6 + MongoDB accounts — [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 28 small pieces — [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | 🟢 Everything pushed — accounts `bbc501c` · sign-up `44b3856` |
+| 🧪 **Tests** | 146 passing (no AI key or network needed; account tests need MongoDB running) |
+| ✅ **Done** | Phases 0–6 + MongoDB accounts + edit rewind — [Work done](#-work-done--step-by-step) |
+| 🧩 **Left** | 27 small pieces — [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — latest: C3 edit rewind (`ee14263`) |
 
 ---
 
@@ -135,6 +135,12 @@ sequenceDiagram
 - ✅ Checked with MongoDB 8.3: sign-up, `409`, `400`, login, wrong password, **restart → still logs in**
 - 📖 How it was built, step by step: [`DATABASE.md`](DATABASE.md)
 
+### ✏️ Step 8 — Edits rewind the memory *(Oct 13, `ee14263`)*
+
+- ✅ `POST /api/conversations/{id}/rewind` `{turns}` forgets the last *turns* turns → `204` · `turns < 1` → `400`
+- ✅ `ConversationRewind`: counts turns **from the end**, so it stays right after the 20-message window dropped the oldest
+- ✅ Tested on the agent itself: after a rewind the model's next prompt holds only the kept turns
+
 ---
 
 ## 🔌 The API
@@ -150,6 +156,7 @@ sequenceDiagram
 | `GET` | `/api/platform` | ✅ | provider chain, model, limits |
 | `POST` | `/api/documents` | ✅ | `201` summary · `415` unsupported · `413` too large |
 | `DELETE` | `/api/documents/{id}` · `/api/conversations/{id}` | ✅ | `204` |
+| `POST` | `/api/conversations/{id}/rewind` `{turns}` | ✅ | `204` · `400` for `turns < 1` |
 | `GET` | `/actuator/health` | ❌ | `{"status":"UP"}` |
 
 ### 🗄️ Where data lives
@@ -189,7 +196,7 @@ Backend/src/main/resources/   application.properties · schema.sql
 
 | Check | Result |
 |---|---|
-| `.\mvnw test` | 🟢 **136 passing** in 26 test classes |
+| `.\mvnw test` | 🟢 **146 passing** in 27 test classes |
 | Without a key or network | 🟢 agents run against a stub model; provider errors are built in the tests |
 | Needs MongoDB running | `AuthIntegrationTest`, `MongoUserStoreTest` (database `agents_test`) |
 | Real runs (not just tests) | 🟢 every phase was checked against a running server, through the frontend's proxy |
@@ -208,7 +215,7 @@ flowchart LR
     N["🏁 Now<br/>A1 A4 A5"] --> DOC["📚 Docs<br/>B1–B5"] --> HK["🧹 Tidy<br/>D1–D5"]
     HK --> SAFE["🔒 Safe to share<br/>E1–E4"]
     SAFE --> STR["🌊 Streaming<br/>F1 F2"]
-    SAFE --> MORE["🧭 Features<br/>F4 F6 F7 F8 F9 C3"]
+    SAFE --> MORE["🧭 Features<br/>F4 F6 F7 F8 F9"]
     STR --> SHIP["🐳 Ship<br/>G1 G3 G4"]
     MORE --> SHIP
     class N now
@@ -292,8 +299,9 @@ flowchart LR
 - [ ] **F9** 💰 **Token totals** per conversation — 🤖 🟡
   1. Save each reply's token counts with the conversation
   2. `GET /api/conversations/{id}/usage` · then the frontend's **F9**
-- [ ] **C3** ✏️ *(backend half)* Rewind a conversation's memory — 🤖 🟢
-  1. `POST /api/conversations/{id}/rewind` `{keep: N}` keeps only the first *N* messages · then the frontend's **C3**
+- [x] **C3** ✏️ *(backend half)* Rewind a conversation's memory — 🤖 🟢 · `POST /api/conversations/{id}/rewind`
+  `{turns: N}` forgets the last *N* turns (counted from the end, not "keep the first N": the memory window may
+  already have dropped the oldest) · the frontend half is done too · 💾 `ee14263`
 
 ### 🐳 G · Ship it
 

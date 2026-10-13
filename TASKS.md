@@ -21,14 +21,14 @@ Done and left, side by side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md) · [`BAC
 
 | | |
 |---|---|
-| 🖥️ **Frontend** | 🟢 Finished — lint ✅ build ✅ tests ✅ (56), runs on its own with **simulated** replies |
+| 🖥️ **Frontend** | 🟢 Finished — lint ✅ build ✅ tests ✅ (62), runs on its own with **simulated** replies |
 | ⚙️ **Backend** | 🟡 5 agents · **5 AI providers with failover** · uploads · H2 storage · login · Phase 7 to go |
 | 🔐 **Login** | 🟢 Real session login · **sign-up + login against MongoDB** (`AUTH_USERS` is gone) |
 | 🍃 **Accounts DB** | 🟢 MongoDB set up and checked — [checklist](#-mongodb-accounts--manual-setup), code explained in [`DATABASE.md`](DATABASE.md) |
-| 🧪 **Tests** | 🟢 Backend: 136 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 56 passing (`npm test`) |
+| 🧪 **Tests** | 🟢 Backend: 146 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 62 passing (`npm test`) |
 | 📚 **Docs** | 🟡 Behind the code — `README.md` still says there's no backend, and links to removed or missing files · 🟢 new: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md), [`BACKEND_STATUS.md`](BACKEND_STATUS.md) |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — fixes C1 · C2 · C7, tests C5 · C6 |
+| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: C3 edit rewind (`ee14263` · `bdfeb18`) |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -126,8 +126,11 @@ flowchart LR
   provider in `AI_PROVIDERS`), not a fixed `GROQ_API_KEY` — `App.tsx` banner, `OverviewPage.tsx` step — 🤖 🟢
   **Checked in a real browser:** Gemini listed first → `GEMINI_API_KEY` in both · default order →
   `GROQ_API_KEY` · no key name sent → the sentence still reads, no empty code box · 💾 `9de624f`
-- [ ] **C3** ✏️ Editing an earlier message also rewinds the server's memory (today the server keeps the turns the
-  browser dropped) — backend + `PlaygroundPage.tsx` — 🤖 🟡
+- [x] **C3** ✏️ Editing an earlier message also rewinds the server's memory: the console asks
+  `POST /api/conversations/{id}/rewind {turns}` to forget that turn and the ones after it, then resends —
+  backend `ConversationRewind`, `lib/dispatch.ts`, `PlaygroundPage.tsx` — 🤖 🟡 · turns are counted **from the
+  end** (still right once the 20-message window dropped the oldest), and only turns a real backend reply
+  answered count · **Checked in a real browser:** three turns (41 · green · Paris), then the 2nd edited into "what did I ask you to remember?" → `rewind {turns: 2}` and the answer **41**; the same chat without the edit answers 41, green, Paris · 💾 `ee14263` `bdfeb18`
 - [ ] **C4** 💬 Chats per account, not per browser (two people on one browser see each other's chats) —
   `useConversations.ts`, `lib/storage.ts` — 🤖 🟡
 - [x] **C5** 🧪 Vitest set up (`npm test`) with the first 32 tests, for `lib/`: `util`, `attributes`, `agentColor` (every
@@ -302,9 +305,8 @@ sequenceDiagram
 > 🐛 Fixed on the way: the old Research Agent read *"Confidence: medium, not high"* as **high**. It now takes the level
 > right after the heading.
 
-- ➡️ ✏️ **Known gap** (to-do **C3**): editing an earlier message in the console drops later turns in the browser only. The server
-  still remembers them, so the re-asked question is answered with the old turns as context. Fix later: the console
-  could forget and replay the conversation, or send its history with each message.
+- ✅ ✏️ **Gap closed** (to-do **C3**, Oct 13): editing an earlier message now makes the server forget that turn and the
+  ones after it (`POST /api/conversations/{id}/rewind`), so the edit is answered without them.
 
 ### 📎 Phase 4 — Files
 
