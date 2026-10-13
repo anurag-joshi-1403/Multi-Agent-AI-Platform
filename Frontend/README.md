@@ -41,13 +41,14 @@ Pick an agent, send a message, inspect exactly what went over the wire.
 | 🤖 **Agent registry** | Every `Agent` bean the backend discovered, with a guide for adding a new one. |
 | 📊 **Overview** | Getting-started checklist, key numbers and a picture of how requests flow. |
 | 🌗 **Dark / light** | Follows your system, switchable any time. Collapsible sidebar (`Ctrl/⌘ + B`). |
-| 🧪 **Works offline** | No backend? The UI switches to simulated agents so you can still explore. |
+| 🧪 **Keeps working offline** | Backend gone after you signed in? Replies switch to clearly tagged simulated ones. |
 
 ---
 
 ## 🚀 Quick start
 
-> **Prerequisites:** Node 20+ and (optionally) the backend running on port 8080.
+> **Prerequisites:** Node 20.19+ (or 22.12+) and the backend running on port 8080 — signing in needs it
+> (how to start it: the [root README](../README.md#-quick-start)).
 
 ```bash
 cd Frontend
@@ -150,14 +151,18 @@ flowchart TD
 
 ## 🔌 Backend contract
 
-The client ([`src/api/client.ts`](src/api/client.ts)) expects the Phase 3 REST layer to expose:
+The client ([`src/api/client.ts`](src/api/client.ts)) uses these routes (the full list is in the
+[root README](../README.md#-api)):
 
 | Method | Path | Body → Response |
 |---|---|---|
+| `POST` | `/api/auth/signup` · `/api/auth/login` | `{ username, password }` → `{ username }`, starts a session |
+| `GET` | `/api/auth/me` | → `{ username }`, or `401` when not signed in |
 | `GET` | `/api/platform` | → provider / model / whether a key is configured |
 | `GET` | `/api/agents` | → `[{ id, name, description, capabilities, parameters }]` |
 | `POST` | `/api/documents` | multipart `file` → `DocumentSummary` |
 | `POST` | `/api/agents/{id}/run` | `AgentRequest` → `AgentResponse` |
+| `POST` | `/api/conversations/{id}/rewind` | `{ turns }` → `204` — forget the turns an edited message replaces |
 
 ```jsonc
 // AgentRequest (mirrors the backend record)
@@ -172,15 +177,16 @@ The client ([`src/api/client.ts`](src/api/client.ts)) expects the Phase 3 REST l
 - `name` and `capabilities` are optional; the UI derives a name from the `id` if absent.
 - Change the base path with `VITE_API_BASE` at build time, or override it at runtime in **Settings**.
 
-> ⚠️ The backend includes `spring-boot-starter-security`. Until a security config permits
-> `/api/**` (and disables CSRF for it), every call will return **401** and the UI will fall back to
-> simulation mode.
+> 🔐 **Sign-in:** every route except sign-up, login and logout needs the session cookie. On load the
+> console asks `GET /api/auth/me` and shows the login page until you're signed in; a `401` from any
+> call later sends you back to it. Accounts live in the backend's MongoDB — there is no simulation
+> bypass for signing in.
 
 ---
 
 ## 🧭 Offline & simulation mode
 
-The app probes `GET /api/agents` on load and picks a mode automatically:
+Once you're signed in, the app probes `GET /api/agents` and picks a mode automatically:
 
 ```mermaid
 stateDiagram-v2
@@ -196,11 +202,12 @@ stateDiagram-v2
 | Mode | Badge in sidebar | Behaviour |
 |---|---|---|
 | 🟢 `online` | Backend online | Real agents, real replies |
-| 🟠 `offline` | Backend offline · simulated | Banner shown; canned agents & replies so the UI stays usable |
+| 🟠 `offline` | Backend offline · simulated | Banner shown; canned agents & replies so the UI stays usable. Each send checks the backend again, so real replies come back on their own |
 | 🔵 `simulated` | Simulation mode | Same as offline, but chosen on purpose (great for demos) |
 
 Simulated replies carry `"simulated": true` in their metadata and a **simulated** tag on the bubble,
-so they're never mistaken for real output.
+so they're never mistaken for real output — and they say why: Simulation mode, or a backend that
+could not be reached.
 
 ---
 
@@ -307,16 +314,17 @@ flowchart LR
 <details>
 <summary><b>Why do I see "Backend offline · simulated"?</b></summary>
 
-The app couldn't reach `GET /api/agents`. Either the Spring Boot app isn't running on 8080, the REST
-controllers don't exist yet, or Spring Security rejected the call. Start/fix the backend, then click
-**Retry** in the banner or **Apply & reconnect** in Settings.
+The app couldn't reach `GET /api/agents`: the Spring Boot app stopped, or isn't on port 8080. Start
+it, then click **Retry** in the banner — or just send again, which checks first. (A session that has
+ended shows the login page instead.)
 </details>
 
 <details>
 <summary><b>Where are my conversations stored?</b></summary>
 
-In your browser's `localStorage` under `maap.conversations`. They never leave your machine. Clear
-them from **Settings → Local data**.
+In your browser's `localStorage`, one list per account (`maap.conversations.<username>`), so two
+people on one browser each see only their own. They never leave your machine. Delete yours from
+**Settings → Local data**.
 </details>
 
 <details>
