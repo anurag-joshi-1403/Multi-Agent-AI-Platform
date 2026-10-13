@@ -298,6 +298,7 @@ flowchart LR
 | `npm run build` | Type-check (`tsc -b`) and bundle to `dist/` |
 | `npm run preview` | Serve the production bundle locally |
 | `npm run lint` | ESLint (incl. React 19 compiler rules) |
+| `npm test` | Vitest: the unit tests (`src/**/*.test.ts`) — no backend or browser needed |
 
 ---
 
