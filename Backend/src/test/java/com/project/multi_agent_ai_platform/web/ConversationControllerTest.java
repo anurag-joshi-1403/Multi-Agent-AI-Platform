@@ -2,7 +2,9 @@ package com.project.multi_agent_ai_platform.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
@@ -10,13 +12,16 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 
 import com.project.multi_agent_ai_platform.agent.llm.StubChatModel;
 
@@ -55,5 +60,36 @@ class ConversationControllerTest {
 	@Test
 	void forgettingAnUnknownConversationIsStill204() throws Exception {
 		mvc.perform(delete("/api/conversations/never-existed")).andExpect(status().isNoContent());
+	}
+
+	private ResultActions rewind(String id, String body) throws Exception {
+		return mvc.perform(post("/api/conversations/" + id + "/rewind").contentType(MediaType.APPLICATION_JSON).content(body));
+	}
+
+	@Test
+	void rewindForgetsTheLatestTurns() throws Exception {
+		memory.add("r-1", List.of(new UserMessage("q1"), new AssistantMessage("a1"), new UserMessage("q2"),
+				new AssistantMessage("a2")));
+
+		rewind("r-1", "{\"turns\":1}").andExpect(status().isNoContent()).andExpect(content().string(""));
+
+		assertThat(memory.get("r-1")).extracting(Message::getText).containsExactly("q1", "a1");
+	}
+
+	@Test
+	void rewindingAnUnknownConversationIsStill204() throws Exception {
+		rewind("never-existed", "{\"turns\":2}").andExpect(status().isNoContent());
+	}
+
+	@Test
+	void rewindNeedsAtLeastOneTurn() throws Exception {
+		memory.add("r-2", List.of(new UserMessage("q1"), new AssistantMessage("a1")));
+
+		rewind("r-2", "{\"turns\":0}").andExpect(status().isBadRequest())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.detail").value("turns: at least 1"));
+		rewind("r-2", "{}").andExpect(status().isBadRequest());
+
+		assertThat(memory.get("r-2")).hasSize(2);
 	}
 }

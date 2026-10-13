@@ -167,6 +167,27 @@ class LlmAgentTest {
 	}
 
 	@Test
+	void anEditedMessageIsAnsweredWithoutTheTurnsThatFollowedIt() {
+		LlmAgent agent = agent();
+		model.reply = "answer one";
+		agent.handle(new AgentRequest("conv-e", "first", Map.of()));
+		model.reply = "answer two";
+		agent.handle(new AgentRequest("conv-e", "second", Map.of()));
+		model.reply = "answer three";
+		agent.handle(new AgentRequest("conv-e", "third", Map.of()));
+
+		// The person edits "second": that turn and the one after it are forgotten, then the edit is sent
+		ConversationRewind.rewind(memory, "conv-e", 2);
+		model.reply = "new answer";
+		agent.handle(new AgentRequest("conv-e", "second, edited", Map.of()));
+
+		assertThat(model.lastPrompt().getInstructions()).extracting(Message::getText)
+			.containsExactly("sys", "first", "answer one", "second, edited");
+		assertThat(memory.get("conv-e")).extracting(Message::getText)
+			.containsExactly("first", "answer one", "second, edited", "new answer");
+	}
+
+	@Test
 	void failedProviderCallDoesNotLeaveADanglingUserTurn() {
 		StubChatModel failing = new StubChatModel() {
 			@Override
