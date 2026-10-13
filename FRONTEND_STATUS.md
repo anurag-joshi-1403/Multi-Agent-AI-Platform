@@ -30,8 +30,8 @@
 | 🔌 **Talks to** | The Spring Boot backend through Vite's `/api` proxy — or a built-in **simulation** when it can't |
 | 💾 **Keeps in the browser** | Chats, theme, settings (`localStorage`, keys starting with `maap.`) |
 | ✅ **Done** | 12 steps — everything below in [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 11 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | 🟢 Everything pushed — latest: C4 per-account chats (`af776c7`), C8 (`1c7c3a0`) |
+| 🧩 **Left** | 10 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — latest: B docs (`4f51843`) |
 
 ---
 
@@ -284,7 +284,8 @@ flowchart LR
 
 ### 📚 Docs
 
-- [ ] **B6** 📝 `Frontend/README.md:175` — replace the old Spring Security note with the real login and sign-up — 🤖 🟢
+- [x] **B6** 📝 `Frontend/README.md`: the old Spring Security note now explains sign-in; offline mode, prerequisites,
+  API table and FAQ brought up to date — 🤖 🟢
 
 ### 🔒 Safe to share
 

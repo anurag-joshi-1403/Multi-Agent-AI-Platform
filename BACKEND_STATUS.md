@@ -32,8 +32,8 @@
 | 🗄️ **Storage** | Uploads + chat memory in an **H2 file** (`Backend/data/`) · accounts in **MongoDB** |
 | 🧪 **Tests** | 146 passing (no AI key or network needed; account tests need MongoDB running) |
 | ✅ **Done** | Phases 0–6 + MongoDB accounts + edit rewind — [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 27 small pieces — [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | 🟢 Everything pushed — latest: C3 edit rewind (`ee14263`) |
+| 🧩 **Left** | 22 small pieces — [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — latest: B docs (`38f3d89` · `a6713ba`) |
 
 ---
 
@@ -212,14 +212,16 @@ Backend/src/main/resources/   application.properties · schema.sql
 flowchart LR
     classDef now fill:#fde68a,stroke:#b7791f,color:#3a2a05,font-weight:bold
     classDef later fill:#e5e7eb,stroke:#6b7280,color:#1f2937
-    N["🏁 Now<br/>A1 A4 A5"] --> DOC["📚 Docs<br/>B1–B5"] --> HK["🧹 Tidy<br/>D1–D5"]
+    classDef done fill:#bbf7d0,stroke:#15803d,color:#14532d
+    N["🏁 Now<br/>A1 A4 A5"] --> DOC["✅ Docs<br/>B1–B5"] --> HK["🧹 Tidy<br/>D1–D5"]
     HK --> SAFE["🔒 Safe to share<br/>E1–E4"]
     SAFE --> STR["🌊 Streaming<br/>F1 F2"]
     SAFE --> MORE["🧭 Features<br/>F4 F6 F7 F8 F9"]
     STR --> SHIP["🐳 Ship<br/>G1 G3 G4"]
     MORE --> SHIP
     class N now
-    class DOC,HK,SAFE,STR,MORE,SHIP later
+    class DOC done
+    class HK,SAFE,STR,MORE,SHIP later
 ```
 
 ### 🏁 Now
@@ -231,11 +233,11 @@ flowchart LR
 
 ### 📚 Docs
 
-- [ ] **B1** 📖 `README.md`: how to run the backend — MongoDB, `Backend/.env`, `.\mvnw spring-boot:run` — 🤖 🟢
-- [ ] **B2** 🔐 `README.md`: sign-up and login; rewrite the Security notes — 🤖 🟢
-- [ ] **B3** 🏷️ `README.md`: status note, badge, diagram, footer, troubleshooting — 🤖 🟢
-- [ ] **B4** 🔗 Remove the dead links to `PROGRESS.md` and `FRONTEND_BUG_AUDIT.md` — 🤖 🟢
-- [ ] **B5** 🗺️ `BACKEND.md`: mark Phases 0–6 done (it still says *Not started*) — 🤖 🟢
+- [x] **B1** 📖 `README.md`: how to run the backend — MongoDB, `Backend/.env`, `.\mvnw spring-boot:run` — 🤖 🟢
+- [x] **B2** 🔐 `README.md`: sign-up and login; Security notes rewritten — 🤖 🟢
+- [x] **B3** 🏷️ `README.md`: status note, badges, diagram, API, footer, troubleshooting — 🤖 🟢
+- [x] **B4** 🔗 Dead links to `PROGRESS.md` and `FRONTEND_BUG_AUDIT.md` removed — 🤖 🟢
+- [x] **B5** 🗺️ `BACKEND.md`: Phases 0–6 marked done, Phase 7 in progress — 🤖 🟢
 
 ### 🧹 D · Tidy up
 

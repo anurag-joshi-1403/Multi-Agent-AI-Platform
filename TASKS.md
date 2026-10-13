@@ -26,9 +26,9 @@ Done and left, side by side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md) · [`BAC
 | 🔐 **Login** | 🟢 Real session login · **sign-up + login against MongoDB** (`AUTH_USERS` is gone) |
 | 🍃 **Accounts DB** | 🟢 MongoDB set up and checked — [checklist](#-mongodb-accounts--manual-setup), code explained in [`DATABASE.md`](DATABASE.md) |
 | 🧪 **Tests** | 🟢 Backend: 146 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 69 passing (`npm test`) |
-| 📚 **Docs** | 🟡 Behind the code — `README.md` still says there's no backend, and links to removed or missing files · 🟢 new: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md), [`BACKEND_STATUS.md`](BACKEND_STATUS.md) |
+| 📚 **Docs** | 🟢 Match the code — `README.md` (quick start, sign-up, API, troubleshooting), `BACKEND.md`, `Frontend/README.md` · per side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md), [`BACKEND_STATUS.md`](BACKEND_STATUS.md) |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: C4 per-account chats (`af776c7`), C8 (`1c7c3a0`) |
+| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: B docs (`38f3d89` · `a6713ba` · `4f51843`) |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -72,20 +72,22 @@ flowchart LR
 flowchart LR
     classDef now fill:#fde68a,stroke:#b7791f,color:#3a2a05,font-weight:bold
     classDef later fill:#e5e7eb,stroke:#6b7280,color:#1f2937
-    A["🏁 A<br/>Wrap up"] --> B["📚 B<br/>Docs"] --> C["🖥️ C<br/>Frontend fixes"]
+    classDef done fill:#bbf7d0,stroke:#15803d,color:#14532d
+    A["🏁 A<br/>Wrap up"] --> B["✅ B<br/>Docs"] --> C["✅ C<br/>Frontend fixes"]
     B --> D["🧹 D<br/>Housekeeping"]
     C --> E["🔒 E<br/>Safe to share"]
     D --> E
     E --> F["🌊 F<br/>New features"] --> G["🐳 G<br/>Ship it"]
     class A now
-    class B,C,D,E,F,G later
+    class B,C done
+    class D,E,F,G later
 ```
 
 | Milestone | Pieces | Why it matters |
 |---|---|---|
 | 🏁 **A · Wrap up what's built** | 5 | Save the MongoDB work and close the leaked-key story |
-| 📚 **B · Docs catch up** | 6 | `README.md` still says there is no backend |
-| 🖥️ **C · Frontend fixes** | 8 | Small bugs and the first frontend tests |
+| 📚 **B · Docs catch up** | 6 | ✅ Done — the docs match the code |
+| 🖥️ **C · Frontend fixes** | 8 | ✅ Done — small bugs, the first frontend tests, chats per account |
 | 🧹 **D · Backend housekeeping** | 6 | Warnings, leftovers, optional checks |
 | 🔒 **E · Safe to share** | 5 | Needed before anyone but you can reach it |
 | 🌊 **F · New features** | 9 | Phase 7: streaming, auto-pick, web search, more sign-in |
@@ -104,17 +106,18 @@ flowchart LR
 
 ### 📚 B · Bring the docs up to date
 
-- [ ] **B1** 📖 `README.md` quick start for the backend: MongoDB running, `Backend/.env` (`GEMINI_API_KEY`, `MONGODB_URI`),
-  `.\mvnw spring-boot:run` from `Backend/` — 🤖 🟢
-- [ ] **B2** 🔐 `README.md` login part: sign up / log in; drop *"any username and password"* (line 54); rewrite the
-  Security notes — 🤖 🟢
-- [ ] **B3** 🏷️ `README.md` status: the note (line 19), the *rebuilding* badge (13), the diagram (72), line 127, the
-  footer (194), and Troubleshooting's *"there is no backend yet"* (162) — 🤖 🟢
-- [ ] **B4** 🔗 Remove dead links: `PROGRESS.md` (README lines 20, 123, 154, 187 and the `BACKEND.md` footer) and
-  `FRONTEND_BUG_AUDIT.md` (README lines 124, 189) — 🤖 🟢
-- [ ] **B5** 🗺️ `BACKEND.md`: the status badge still says *Not started* and every phase is 🔴 — mark Phases 0–6 done — 🤖 🟢
-- [ ] **B6** 📝 [`Frontend/README.md:175`](Frontend/README.md#L175): the Spring Security line — describe the real
-  login and sign-up — 🤖 🟢
+- [x] **B1** 📖 `README.md` quick start in 3 steps: backend (`Backend/.env` from `.env.example`, `.\mvnw spring-boot:run`),
+  console (`npm run dev`), sign up — with Java 25, Node 20.19+, MongoDB and one AI key as prerequisites — 🤖 🟢
+- [x] **B2** 🔐 `README.md`: sign-up and login described, *"any username and password"* gone, Security notes
+  rewritten (leaked key, `127.0.0.1` only, E1–E4 before sharing, BCrypt, cookie, `localStorage`) — 🤖 🟢
+- [x] **B3** 🏷️ `README.md`: Oct 14 status note, badges (Java, Spring, MongoDB, tests), diagram, layout, full API table,
+  checks, footer · Troubleshooting rewritten — MongoDB down was tried for real: the backend stops after ~30 s — 🤖 🟢
+- [x] **B4** 🔗 Dead links to `PROGRESS.md` and `FRONTEND_BUG_AUDIT.md` gone from `README.md` and `BACKEND.md` — 🤖 🟢
+  · 💾 B1–B4 `38f3d89` · B5 `a6713ba` · B6 `4f51843`
+- [x] **B5** 🗺️ `BACKEND.md`: badge *Phases 0–6 done*, phases 🟢 in the table and diagram, Phase 7 🟡 (sign-up done),
+  sign-up and rewind in the API table — 🤖 🟢
+- [x] **B6** 📝 `Frontend/README.md`: the old Spring Security warning → how sign-in works; also the offline mode,
+  prerequisites, API table and FAQ brought up to date — 🤖 🟢
 
 ### 🖥️ C · Frontend fixes
 
