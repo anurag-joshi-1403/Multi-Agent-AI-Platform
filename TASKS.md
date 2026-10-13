@@ -21,14 +21,14 @@ Done and left, side by side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md) · [`BAC
 
 | | |
 |---|---|
-| 🖥️ **Frontend** | 🟢 Finished — lint ✅ build ✅, runs on its own with **simulated** replies |
+| 🖥️ **Frontend** | 🟢 Finished — lint ✅ build ✅ tests ✅ (56), runs on its own with **simulated** replies |
 | ⚙️ **Backend** | 🟡 5 agents · **5 AI providers with failover** · uploads · H2 storage · login · Phase 7 to go |
 | 🔐 **Login** | 🟢 Real session login · **sign-up + login against MongoDB** (`AUTH_USERS` is gone) |
 | 🍃 **Accounts DB** | 🟢 MongoDB set up and checked — [checklist](#-mongodb-accounts--manual-setup), code explained in [`DATABASE.md`](DATABASE.md) |
-| 🧪 **Tests** | 🟡 Backend: 136 passing (no AI key or network; the account tests need MongoDB running) · Frontend: none |
+| 🧪 **Tests** | 🟢 Backend: 136 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 56 passing (`npm test`) |
 | 📚 **Docs** | 🟡 Behind the code — `README.md` still says there's no backend, and links to removed or missing files · 🟢 new: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md), [`BACKEND_STATUS.md`](BACKEND_STATUS.md) |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟡 Fixes C1 · C2 · C7 committed (`51f174b` · `9de624f` · `32494ce`), **not pushed yet** · everything before is on `origin/main` |
+| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — fixes C1 · C2 · C7, tests C5 · C6 |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -85,7 +85,7 @@ flowchart LR
 |---|---|---|
 | 🏁 **A · Wrap up what's built** | 5 | Save the MongoDB work and close the leaked-key story |
 | 📚 **B · Docs catch up** | 6 | `README.md` still says there is no backend |
-| 🖥️ **C · Frontend fixes** | 7 | Small bugs and the first frontend tests |
+| 🖥️ **C · Frontend fixes** | 8 | Small bugs and the first frontend tests |
 | 🧹 **D · Backend housekeeping** | 6 | Warnings, leftovers, optional checks |
 | 🔒 **E · Safe to share** | 5 | Needed before anyone but you can reach it |
 | 🌊 **F · New features** | 9 | Phase 7: streaming, auto-pick, web search, more sign-in |
@@ -130,14 +130,23 @@ flowchart LR
   browser dropped) — backend + `PlaygroundPage.tsx` — 🤖 🟡
 - [ ] **C4** 💬 Chats per account, not per browser (two people on one browser see each other's chats) —
   `useConversations.ts`, `lib/storage.ts` — 🤖 🟡
-- [ ] **C5** 🧪 Set up Vitest and write the first tests, for `lib/` — 🤖 🟡
-- [ ] **C6** 🧪 Tests for `api/client.ts`: offline fallback, a `401` sends you to login, problem+json messages — 🤖 🟡
+- [x] **C5** 🧪 Vitest set up (`npm test`) with the first 32 tests, for `lib/`: `util`, `attributes`, `agentColor` (every
+  chat colour keeps white text at WCAG 4.5:1), `storage` (never throws when blocked or full), `dispatch` (send,
+  edit & resend, errors) — 🤖 🟡 · **Found and fixed 2 bugs** in `lib/util.ts`: a chat 45–59 s old said
+  *"0m ago"*, and 999.6 ms showed as *"1000 ms"* · 💾 `f480244` `7736878`
+- [x] **C6** 🧪 24 tests for `api/client.ts`: offline fallback and re-probe, Simulation mode never calls the backend, a
+  `401` from any call sends you to login, problem+json messages, the empty-`502` proxy case, uploads keep the
+  multipart header, a bad saved API address (C1) — 🤖 🟡 · **Checked that they catch bugs:** 7 deliberate breaks
+  in a copy of `client.ts`, each failed the test written for it · 💾 `d8e4a57`
 - [x] **C7** 🎭 A simulated reply says *why*: *"Simulation mode is on in Settings"* when it was switched on,
   *"the backend could not be reached"* only when that is true (it always said offline) — `api/mock.ts`,
   `api/client.ts` — 🤖 🟢 · the mid-chat error no longer says *"Switched to simulation mode"* (the Settings
   switch stays off) · **Checked in a real browser:** simulation on → the Settings wording, no backend call ·
   backend down → the offline wording · backend drops mid-chat → error, simulated reply, then a real reply once
   it is back · 💾 `32494ce`
+- [ ] **C8** 🛡️ `npm audit`: update `source-map-js` 1.2.1 → 1.2.2 (it comes with Vite → postcss; high, but only a
+  crafted source map can hang the build tools, not the app) — after Oct 14, when 1.2.2 is two weeks old:
+  `npm audit fix`, then `npm test`, lint, build — 🤖 🟢
 
 ### 🧹 D · Backend housekeeping
 

@@ -11,7 +11,7 @@
 [![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)](Frontend/vite.config.ts)
 [![Deps](https://img.shields.io/badge/runtime%20deps-react%20only-34d399)](#-at-a-glance)
 [![Checks](https://img.shields.io/badge/lint%20%2B%20build-passing-34d399)](#-checks)
-[![Tests](https://img.shields.io/badge/tests-none%20yet-f87171)](#-c--frontend-fixes)
+[![Tests](https://img.shields.io/badge/tests-56%20passing-34d399)](#-checks)
 
 </div>
 
@@ -29,9 +29,9 @@
 | 📄 **Pages** | 🔐 Login / sign-up · 🏠 Overview · 💬 Playground · 🤖 Agents · ⚙️ Settings |
 | 🔌 **Talks to** | The Spring Boot backend through Vite's `/api` proxy — or a built-in **simulation** when it can't |
 | 💾 **Keeps in the browser** | Chats, theme, settings (`localStorage`, keys starting with `maap.`) |
-| ✅ **Done** | 9 steps — everything below in [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 15 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | 🟡 Fixes C1 · C2 · C7 committed, **not pushed yet** · everything before is on `origin/main` |
+| ✅ **Done** | 10 steps — everything below in [Work done](#-work-done--step-by-step) |
+| 🧩 **Left** | 14 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — fixes C1 · C2 · C7, tests C5 · C6 |
 
 ---
 
@@ -139,6 +139,13 @@ sequenceDiagram
 - ✅ `autocomplete="new-password"` in sign-up mode; the old "no self-service sign-up" notice is gone
 - ✅ `signup()` in `api/client.ts` and `useAuth` — you are signed in straight after
 
+### 🧪 Step 10 — First tests *(Oct 11)*
+
+- ✅ **Vitest** set up — `npm test` runs 56 tests in under a second, no backend or browser needed
+- ✅ `lib/`: formatting, agent options, colours (readable contrast), storage that never throws, the send/edit flow
+- ✅ `api/client.ts`: offline fallback, Simulation mode, a `401` → login page, error messages, uploads, a bad saved API address
+- ✅ Proved useful: 2 bugs found and fixed on the way; 7 deliberate breaks of `client.ts` all caught
+
 ---
 
 ## 📁 What's where
@@ -159,7 +166,8 @@ Frontend/src/
 │   └── SettingsPage.tsx   ⚙️ API address, simulation mode, theme, provider chain, delete chats
 ├── components/            🧩 Composer · MessageBubble · Markdown · Inspector · Sidebar · Icons · …
 ├── hooks/                 🪝 useAuth · useAgents · useConversations · useAttachments · useTheme · useHashRoute · …
-└── lib/                   🧠 dispatch (send/edit flow) · storage · agentColor · attributes · util
+├── lib/                   🧠 dispatch (send/edit flow) · storage · agentColor · attributes · util
+└── test/                  🧪 fakes.ts — stand-ins for the tests · each `*.test.ts` sits next to its code
 ```
 
 ### 🔌 What the frontend calls
@@ -178,7 +186,7 @@ Frontend/src/
 |---|---|
 | `npm run lint` (ESLint, React 19 rules) | 🟢 passing |
 | `npm run build` (type-check + bundle) | 🟢 passing — ~308 kB JS, ~50 kB CSS |
-| Automated tests | 🔴 none yet — pieces **C5**, **C6** |
+| `npm test` (Vitest) | 🟢 56 passing in 6 files — `lib/` and `api/client.ts`, no backend or browser needed |
 
 > ⚠️ **Right now in your browser:** *Simulation mode* is on (`maap.simulate = true`), so replies are simulated even
 > though the backend is up. Settings → turn *Simulation mode* off → *Apply & reconnect*. The two red `401`s on
@@ -196,14 +204,14 @@ flowchart LR
     classDef now fill:#fde68a,stroke:#b7791f,color:#3a2a05,font-weight:bold
     classDef later fill:#e5e7eb,stroke:#6b7280,color:#1f2937
     classDef done fill:#bbf7d0,stroke:#15803d,color:#14532d
-    N["🏁 Now<br/>A2"] --> FX["✅ Fixes<br/>C1 C2 C7"] --> T["🧪 Tests<br/>C5 C6"]
+    N["🏁 Now<br/>A2"] --> FX["✅ Fixes<br/>C1 C2 C7"] --> T["✅ Tests<br/>C5 C6"]
     FX --> CH["💬 Chats<br/>C3 C4"]
     T --> NEW["🌊 Features<br/>F3 F5 F7 F8 F9"]
     CH --> NEW
     NEW --> SHIP["🐳 Ship<br/>G2 · G4"]
     class N now
-    class FX done
-    class T,CH,NEW,SHIP later
+    class FX,T done
+    class CH,NEW,SHIP later
 ```
 
 ### 🏁 Now
@@ -228,6 +236,9 @@ flowchart LR
   switch stays off) · **Checked in a real browser:** simulation on → the Settings wording, no backend call ·
   backend down → the offline wording · backend drops mid-chat → error, simulated reply, then a real reply once
   it is back · 💾 `32494ce`
+- [ ] **C8** 🛡️ `npm audit`: update `source-map-js` 1.2.1 → 1.2.2 (it comes with Vite → postcss; high, but only a
+  crafted source map can hang the build tools, not the app) — after Oct 14, when 1.2.2 is two weeks old:
+  `npm audit fix`, then `npm test`, lint, build — 🤖 🟢
 - [ ] **C3** ✏️ Editing an earlier message also rewinds the server's memory — 🤖 🟡
   1. Backend: an endpoint that keeps only the first *N* messages of a conversation *(see the backend file)*
   2. `api/client.ts`: `rewindConversation(id, keep)`
@@ -241,16 +252,18 @@ flowchart LR
 
 ### 🧪 C · Tests
 
-- [ ] **C5** 🧪 Set up Vitest + the first tests — 🤖 🟡
-  1. `npm i -D vitest jsdom` · add `"test": "vitest run"` to `package.json`
-  2. `vite.config.ts`: a `test` block (`environment: 'jsdom'`)
-  3. Tests for `lib/util.ts` (`formatMs`, `truncate`, `titleCase`) and `lib/attributes.ts`
-  4. Tests for `lib/agentColor.ts` (same id → same colour, readable contrast)
-- [ ] **C6** 🧪 Tests for `api/client.ts` — 🤖 🟡
-  1. A fake `fetch` helper
-  2. Offline → simulated agents and status `offline`; simulation on → no network call at all
-  3. A `401` from any call tells `useAuth` to show the login page
-  4. problem+json `detail` becomes the error message; an empty `502` reads "could not be reached"
+- [x] **C5** 🧪 Vitest set up and the first tests, for `lib/` — 32 tests — 🤖 🟡 · 💾 `f480244` `7736878`
+  1. ✅ `vitest` 5.0.2 as a dev dependency, installed with every package at least two weeks old · `npm test`
+  2. ✅ No browser needed: the tests run in Node with small stand-ins (`src/test/fakes.ts`), so no jsdom yet
+  3. ✅ `util`, `attributes`, `agentColor` (every chat colour keeps white text at 4.5:1), `storage` (never throws
+     when blocked or full), `dispatch` (send, edit & resend, errors)
+  4. 🐞 Found and fixed: a chat 45–59 s old said *"0m ago"*; 999.6 ms showed as *"1000 ms"*
+- [x] **C6** 🧪 Tests for `api/client.ts` — 24 tests — 🤖 🟡 · 💾 `d8e4a57`
+  1. ✅ A fake backend: answers by `METHOD url`; anything else fails like an unreachable server
+  2. ✅ Offline → simulated agents, status `offline`, a re-probe on the next send · Simulation mode → no network call
+  3. ✅ A `401` from any call tells the login gate (`useAuth` signs you out) · a `401` on `/auth/me` = not signed in
+  4. ✅ problem+json `detail` → the message · an empty `502` → "could not be reached" · uploads keep the multipart header
+  5. ✅ Checked that they catch bugs: 7 deliberate breaks in a copy of `client.ts`, each failed the test written for it
 
 ### 📚 Docs
 
@@ -281,7 +294,7 @@ flowchart LR
   1. Stage 1: `node` image, `npm ci`, `npm run build`
   2. Stage 2: a small web server (e.g. nginx) serving `dist/`
   3. Its config forwards `/api` to the backend and sends unknown paths to `index.html`
-- [ ] **G4** 🤖 *(frontend half)* CI runs `npm ci`, `npm run lint`, `npm run build` (and `npm test` after C5) on every push — 🤖 🟢
+- [ ] **G4** 🤖 *(frontend half)* CI runs `npm ci`, `npm run lint`, `npm run build` and `npm test` on every push — 🤖 🟢
 
 > 🔒 **Still placeholders on the login page:** *Continue with Google* and *Forgot password?* answer with a short
 > notice until **F8** and **F7**.
