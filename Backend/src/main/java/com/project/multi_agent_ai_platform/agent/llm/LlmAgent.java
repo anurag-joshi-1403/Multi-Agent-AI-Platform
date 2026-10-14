@@ -16,6 +16,7 @@ import org.springframework.ai.chat.model.Generation;
 
 import com.project.multi_agent_ai_platform.agent.core.Agent;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
+import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.config.ProviderChain;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 import com.project.multi_agent_ai_platform.document.StoredDocument;
@@ -33,6 +34,9 @@ import com.project.multi_agent_ai_platform.document.StoredDocument;
  * <p>
  * Files the caller attached are appended to the system prompt of every call, so any agent can
  * answer about them, and their text never enters conversation memory.
+ * <p>
+ * A subclass says what to send ({@link #turn}) and what to note about the finished answer
+ * ({@link #describe}); this class runs the call ({@link #handle}).
  */
 public abstract class LlmAgent implements Agent {
 
@@ -61,23 +65,53 @@ public abstract class LlmAgent implements Agent {
 		return attachments.resolve(request);
 	}
 
-	/** What the model said plus provider facts. */
-	protected record Completion(String content, Map<String, Object> metadata) {
+	/**
+	 * What to send for one request: the user message, the files attached to it, and any facts known
+	 * before the answer (they go into its metadata).
+	 */
+	protected record Turn(String message, List<StoredDocument> attached, Map<String, ?> facts) {
+
+		/** Public, unlike the record: agents in other packages create their turns. */
+		public Turn {
+			attached = List.copyOf(attached);
+			facts = Map.copyOf(facts);
+		}
+
+		public Turn(String message, List<StoredDocument> attached) {
+			this(message, attached, Map.of());
+		}
+	}
+
+	/** What to send for this request. Throws for a request this agent can't handle, before any call. */
+	protected abstract Turn turn(AgentRequest request);
+
+	/** Notes about the finished answer for its metadata, e.g. the code's language. None by default. */
+	protected void describe(String content, Map<String, Object> metadata) {
 	}
 
 	/**
-	 * Send {@code userMessage} with the agent's system prompt plus the request's attached files,
-	 * replaying the conversation's earlier turns when the request has a {@code conversationId}.
-	 * Provider errors propagate.
+	 * Sends the {@link #turn} with the agent's system prompt plus the attached files, replaying the
+	 * conversation's earlier turns when the request has a {@code conversationId}. Provider errors
+	 * propagate.
 	 */
-	protected final Completion complete(AgentRequest request, String userMessage) {
-		return complete(request, userMessage, attached(request));
+	@Override
+	public final AgentResponse handle(AgentRequest request) {
+		Turn turn = turn(request);
+		try {
+			ChatResponse response = prompt(request, turn).call().chatResponse();
+			return finish(request, turn, textOf(response), response);
+		}
+		catch (RuntimeException ex) {
+			// The memory advisor stores the user turn before the model is called. If the call fails,
+			// drop that turn so the next request does not replay an unanswered question.
+			forgetDanglingUserTurn(request);
+			throw ex;
+		}
 	}
 
-	/** As {@link #complete(AgentRequest, String)}, for agents that already resolved the attachments. */
-	protected final Completion complete(AgentRequest request, String userMessage, List<StoredDocument> attached) {
+	private ChatClient.ChatClientRequestSpec prompt(AgentRequest request, Turn turn) {
 		ChatClient.ChatClientRequestSpec spec = chatClient.prompt();
-		String fileBlock = attachments.block(attached);
+		String fileBlock = attachments.block(turn.attached());
 		if (fileBlock != null) {
 			spec = spec.system(systemPrompt + fileBlock);
 		}
@@ -85,25 +119,24 @@ public abstract class LlmAgent implements Agent {
 		if (conversationId != null) {
 			spec = spec.advisors(memoryAdvisor).advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId));
 		}
-		try {
-			ChatResponse response = spec.user(userMessage).call().chatResponse();
-			Completion completion = toCompletion(response, request);
-			if (!attached.isEmpty()) {
-				completion.metadata().put("documentNames", attached.stream().map(StoredDocument::name).toList());
-			}
-			return completion;
-		}
-		catch (RuntimeException ex) {
-			// The memory advisor stores the user turn before the model is called. If the call fails,
-			// drop that turn so the next request does not replay an unanswered question.
-			if (conversationId != null) {
-				forgetDanglingUserTurn(conversationId);
-			}
-			throw ex;
-		}
+		return spec.user(turn.message());
 	}
 
-	private void forgetDanglingUserTurn(String conversationId) {
+	private AgentResponse finish(AgentRequest request, Turn turn, String content, ChatResponse response) {
+		Map<String, Object> metadata = metadataOf(response, request);
+		if (!turn.attached().isEmpty()) {
+			metadata.put("documentNames", turn.attached().stream().map(StoredDocument::name).toList());
+		}
+		metadata.putAll(turn.facts());
+		describe(content, metadata);
+		return new AgentResponse(id(), content, metadata);
+	}
+
+	private void forgetDanglingUserTurn(AgentRequest request) {
+		String conversationId = conversationId(request);
+		if (conversationId == null) {
+			return;
+		}
 		List<Message> messages = chatMemory.get(conversationId);
 		if (!messages.isEmpty() && messages.getLast().getMessageType() == MessageType.USER) {
 			List<Message> kept = List.copyOf(messages.subList(0, messages.size() - 1));
@@ -119,19 +152,25 @@ public abstract class LlmAgent implements Agent {
 		return id == null || id.isBlank() ? null : id;
 	}
 
-	private static Completion toCompletion(ChatResponse response, AgentRequest request) {
+	/** The answer's text, or {@code ""} for a response without any. */
+	private static String textOf(ChatResponse response) {
+		Generation generation = response == null ? null : response.getResult();
+		if (generation == null || generation.getOutput() == null || generation.getOutput().getText() == null) {
+			return "";
+		}
+		return generation.getOutput().getText();
+	}
+
+	/** Provider facts for the Inspector. */
+	private static Map<String, Object> metadataOf(ChatResponse response, AgentRequest request) {
 		// AgentResponse copies this with Map.copyOf, which rejects null values: only add what is present.
 		Map<String, Object> metadata = new LinkedHashMap<>();
 		if (request.conversationId() != null) {
 			metadata.put("conversationId", request.conversationId());
 		}
 
-		String content = "";
 		if (response != null) {
 			Generation generation = response.getResult();
-			if (generation != null && generation.getOutput() != null && generation.getOutput().getText() != null) {
-				content = generation.getOutput().getText();
-			}
 			if (generation != null && generation.getMetadata() != null
 					&& generation.getMetadata().getFinishReason() != null) {
 				metadata.put("finishReason", generation.getMetadata().getFinishReason());
@@ -156,7 +195,7 @@ public abstract class LlmAgent implements Agent {
 				}
 			}
 		}
-		return new Completion(content, metadata);
+		return metadata;
 	}
 
 	/** Attribute as a trimmed string, or {@code null} when absent or blank. */

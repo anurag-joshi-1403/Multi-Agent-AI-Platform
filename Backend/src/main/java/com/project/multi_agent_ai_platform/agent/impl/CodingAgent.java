@@ -1,6 +1,5 @@
 package com.project.multi_agent_ai_platform.agent.impl;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Component;
 
 import com.project.multi_agent_ai_platform.agent.core.AgentParameter;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
-import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 
@@ -62,21 +60,24 @@ public class CodingAgent extends LlmAgent {
 	}
 
 	@Override
-	public AgentResponse handle(AgentRequest request) {
+	protected Turn turn(AgentRequest request) {
 		String language = attribute(request, "language");
 		String message = language == null
 				? request.message()
 				: "Answer in " + language + ". Every code block in your reply must be " + language
 						+ ", tagged as such, even if the question mentions another language.\n\n" + request.message();
+		return new Turn(message, attached(request), language == null ? Map.of() : Map.of("language", language));
+	}
 
-		Completion completion = complete(request, message);
-
-		Map<String, Object> metadata = new LinkedHashMap<>(completion.metadata());
-		String detected = language != null ? language : detectLanguage(completion.content());
-		if (detected != null) {
-			metadata.put("language", detected);
+	/** Without a chosen language, the one of the answer's first code block. */
+	@Override
+	protected void describe(String content, Map<String, Object> metadata) {
+		if (!metadata.containsKey("language")) {
+			String detected = detectLanguage(content);
+			if (detected != null) {
+				metadata.put("language", detected);
+			}
 		}
-		return new AgentResponse(id(), completion.content(), metadata);
 	}
 
 	/** Language tag of the first fenced code block, e.g. {@code java}; {@code null} when there is none. */

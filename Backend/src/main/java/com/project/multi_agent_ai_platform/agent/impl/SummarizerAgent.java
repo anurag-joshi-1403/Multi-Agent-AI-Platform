@@ -1,6 +1,5 @@
 package com.project.multi_agent_ai_platform.agent.impl;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -11,7 +10,6 @@ import org.springframework.stereotype.Component;
 
 import com.project.multi_agent_ai_platform.agent.core.AgentParameter;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
-import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 import com.project.multi_agent_ai_platform.document.StoredDocument;
@@ -63,7 +61,7 @@ public class SummarizerAgent extends LlmAgent {
 	}
 
 	@Override
-	public AgentResponse handle(AgentRequest request) {
+	protected Turn turn(AgentRequest request) {
 		String style = normaliseStyle(attribute(request, "style"));
 		int maxWords = Math.max(MIN_WORDS, attribute(request, "maxWords", DEFAULT_MAX_WORDS));
 
@@ -89,17 +87,15 @@ public class SummarizerAgent extends LlmAgent {
 					+ request.message() + "\n" + delimiter;
 			inputChars = attached.stream().mapToInt(doc -> doc.content().length()).sum();
 		}
-		Completion completion = complete(request, prompt, attached);
+		return new Turn(prompt, attached, Map.of("style", style, "maxWords", maxWords, "inputChars", inputChars));
+	}
 
-		Map<String, Object> metadata = new LinkedHashMap<>(completion.metadata());
-		metadata.put("style", style);
-		metadata.put("maxWords", maxWords);
-		metadata.put("inputChars", inputChars);
-		if (!completion.content().isEmpty() && inputChars > 0) {
-			double ratio = (double) completion.content().length() / inputChars;
+	@Override
+	protected void describe(String content, Map<String, Object> metadata) {
+		if (!content.isEmpty() && metadata.get("inputChars") instanceof Integer inputChars && inputChars > 0) {
+			double ratio = (double) content.length() / inputChars;
 			metadata.put("compressionRatio", Math.round(ratio * 100.0) / 100.0);
 		}
-		return new AgentResponse(id(), completion.content(), metadata);
 	}
 
 	/** Unknown or missing styles fall back to bullets. */

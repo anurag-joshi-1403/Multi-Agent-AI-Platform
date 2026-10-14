@@ -1,6 +1,5 @@
 package com.project.multi_agent_ai_platform.agent.impl;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -12,7 +11,6 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Component;
 
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
-import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 
@@ -56,16 +54,16 @@ public class ResearchAgent extends LlmAgent {
 	}
 
 	@Override
-	public AgentResponse handle(AgentRequest request) {
-		Completion completion = complete(request, request.message());
+	protected Turn turn(AgentRequest request) {
+		return new Turn(request.message(), attached(request), Map.of("mode", "knowledge"));
+	}
 
-		Map<String, Object> metadata = new LinkedHashMap<>(completion.metadata());
-		metadata.put("mode", "knowledge");
-		String confidence = extractConfidence(completion.content());
+	@Override
+	protected void describe(String content, Map<String, Object> metadata) {
+		String confidence = extractConfidence(content);
 		if (confidence != null) {
 			metadata.put("confidence", confidence);
 		}
-		return new AgentResponse(id(), completion.content(), metadata);
 	}
 
 	/**

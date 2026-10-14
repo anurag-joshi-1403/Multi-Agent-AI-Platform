@@ -7,7 +7,6 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Component;
 
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
-import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 
@@ -45,8 +44,7 @@ public class GeneralAgent extends LlmAgent {
 	}
 
 	@Override
-	public AgentResponse handle(AgentRequest request) {
-		Completion completion = complete(request, request.message());
-		return new AgentResponse(id(), completion.content(), completion.metadata());
+	protected Turn turn(AgentRequest request) {
+		return new Turn(request.message(), attached(request));
 	}
 }

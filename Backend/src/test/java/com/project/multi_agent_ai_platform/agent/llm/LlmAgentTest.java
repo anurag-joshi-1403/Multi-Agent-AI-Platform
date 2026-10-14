@@ -45,9 +45,8 @@ class LlmAgentTest {
 			}
 
 			@Override
-			public AgentResponse handle(AgentRequest request) {
-				Completion completion = complete(request, request.message());
-				return new AgentResponse(id(), completion.content(), completion.metadata());
+			protected Turn turn(AgentRequest request) {
+				return new Turn(request.message(), attached(request));
 			}
 		};
 	}

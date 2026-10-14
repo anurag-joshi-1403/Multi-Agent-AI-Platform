@@ -1,6 +1,5 @@
 package com.project.multi_agent_ai_platform.agent.impl;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -9,7 +8,6 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.stereotype.Component;
 
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
-import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.agent.core.InvalidAgentRequestException;
 import com.project.multi_agent_ai_platform.agent.llm.LlmAgent;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
@@ -50,17 +48,12 @@ public class DocumentAgent extends LlmAgent {
 	}
 
 	@Override
-	public AgentResponse handle(AgentRequest request) {
+	protected Turn turn(AgentRequest request) {
 		List<StoredDocument> attached = attached(request);
 		if (attached.isEmpty()) {
 			throw new InvalidAgentRequestException(
 					"The Document Agent needs at least one attached file. Attach a PDF or text file to your message.");
 		}
-
-		Completion completion = complete(request, request.message(), attached);
-
-		Map<String, Object> metadata = new LinkedHashMap<>(completion.metadata());
-		metadata.put("documentIds", attached.stream().map(StoredDocument::id).toList());
-		return new AgentResponse(id(), completion.content(), metadata);
+		return new Turn(request.message(), attached, Map.of("documentIds", attached.stream().map(StoredDocument::id).toList()));
 	}
 }
