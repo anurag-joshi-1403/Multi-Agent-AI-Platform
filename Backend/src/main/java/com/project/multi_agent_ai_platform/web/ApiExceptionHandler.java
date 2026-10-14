@@ -26,6 +26,7 @@ import com.project.multi_agent_ai_platform.agent.core.UnknownAgentException;
 import com.project.multi_agent_ai_platform.config.ProviderChainException;
 import com.project.multi_agent_ai_platform.config.ProviderFailure;
 import com.project.multi_agent_ai_platform.document.UnsupportedDocumentException;
+import com.project.multi_agent_ai_platform.user.InvalidInviteCodeException;
 import com.project.multi_agent_ai_platform.user.UsernameTakenException;
 
 /**
@@ -177,6 +178,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
 	private static String readable(DataSize size) {
 		return size.toMegabytes() >= 1 ? size.toMegabytes() + " MB" : size.toKilobytes() + " KB";
+	}
+
+	/** Sign-up without the right invite code, while the backend requires one. */
+	@ExceptionHandler(InvalidInviteCodeException.class)
+	ProblemDetail inviteCodeRequired(InvalidInviteCodeException ex) {
+		return problem(HttpStatus.FORBIDDEN, "Invite code required",
+				"Sign-up needs a valid invite code. Ask whoever runs this console for one.");
 	}
 
 	/** Sign-up with a username that is already registered. */
