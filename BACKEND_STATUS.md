@@ -9,7 +9,7 @@
 [![Java](https://img.shields.io/badge/Java-25-f89820?logo=openjdk&logoColor=white)](Backend/pom.xml)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6db33f?logo=springboot&logoColor=white)](Backend/pom.xml)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.1-6db33f)](Backend/pom.xml)
-[![Tests](https://img.shields.io/badge/tests-146%20passing-34d399)](#-checks)
+[![Tests](https://img.shields.io/badge/tests-148%20passing-34d399)](#-checks)
 [![H2](https://img.shields.io/badge/H2-files%20%2B%20memory-1f6feb)](#-where-data-lives)
 [![MongoDB](https://img.shields.io/badge/MongoDB-accounts-47A248?logo=mongodb&logoColor=white)](#-where-data-lives)
 
@@ -30,10 +30,10 @@
 | 🔌 **Endpoints** | 12 under `/api` + `/actuator/health` |
 | 🔐 **Login** | Session cookie · sign-up and accounts in **MongoDB** · BCrypt passwords |
 | 🗄️ **Storage** | Uploads + chat memory in an **H2 file** (`Backend/data/`) · accounts in **MongoDB** |
-| 🧪 **Tests** | 146 passing (no AI key or network needed; account tests need MongoDB running) |
+| 🧪 **Tests** | 148 passing (no AI key or network needed; account tests need MongoDB running) |
 | ✅ **Done** | Phases 0–6 + MongoDB accounts + edit rewind — [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 22 small pieces — [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | 🟢 Everything pushed — latest: B docs (`38f3d89` · `a6713ba`) |
+| 🧩 **Left** | 18 small pieces — [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — latest: D housekeeping (`4fc3299` · `40275f3`) |
 
 ---
 
@@ -196,7 +196,7 @@ Backend/src/main/resources/   application.properties · schema.sql
 
 | Check | Result |
 |---|---|
-| `.\mvnw test` | 🟢 **146 passing** in 27 test classes |
+| `.\mvnw test` | 🟢 **148 passing** in 28 test classes |
 | Without a key or network | 🟢 agents run against a stub model; provider errors are built in the tests |
 | Needs MongoDB running | `AuthIntegrationTest`, `MongoUserStoreTest` (database `agents_test`) |
 | Real runs (not just tests) | 🟢 every phase was checked against a running server, through the frontend's proxy |
@@ -213,15 +213,15 @@ flowchart LR
     classDef now fill:#fde68a,stroke:#b7791f,color:#3a2a05,font-weight:bold
     classDef later fill:#e5e7eb,stroke:#6b7280,color:#1f2937
     classDef done fill:#bbf7d0,stroke:#15803d,color:#14532d
-    N["🏁 Now<br/>A1 A4 A5"] --> DOC["✅ Docs<br/>B1–B5"] --> HK["🧹 Tidy<br/>D1–D5"]
+    N["🏁 Now<br/>A1 A4 A5"] --> DOC["✅ Docs<br/>B1–B5"] --> HK["✅ Tidy<br/>D1–D4 · D5 optional"]
     HK --> SAFE["🔒 Safe to share<br/>E1–E4"]
     SAFE --> STR["🌊 Streaming<br/>F1 F2"]
     SAFE --> MORE["🧭 Features<br/>F4 F6 F7 F8 F9"]
     STR --> SHIP["🐳 Ship<br/>G1 G3 G4"]
     MORE --> SHIP
     class N now
-    class DOC done
-    class HK,SAFE,STR,MORE,SHIP later
+    class DOC,HK done
+    class SAFE,STR,MORE,SHIP later
 ```
 
 ### 🏁 Now
@@ -241,10 +241,10 @@ flowchart LR
 
 ### 🧹 D · Tidy up
 
-- [ ] **D1** 📏 The `413` says *"The file is larger than 20 MB"* — `ApiExceptionHandler` — 🤖 🟢
-- [ ] **D2** 🌶️ Remove Lombok (unused; Java 25 warnings, VS Code errors) — `pom.xml` — 🤖 🟢
-- [ ] **D3** 🧾 Fill in or remove the empty `<name/>`, `<description/>`, `<licenses>`, `<developers>`, `<scm>` — `pom.xml` — 🤖 🟢
-- [ ] **D4** 🗑️ Delete the stray `target/` folder at the repo root — 🤖 🟢
+- [x] **D1** 📏 The `413` says *"The file is larger than 20 MB"* — `ApiExceptionHandler` — 🤖 🟢 · checked with a real 21 MB upload · 💾 `4fc3299`
+- [x] **D2** 🌶️ Lombok removed (unused) — `pom.xml` — 🤖 🟢 · clean build, no warnings
+- [x] **D3** 🧾 `pom.xml`: name and description filled in, empty placeholders removed — 🤖 🟢 · 💾 D2 + D3 `40275f3`
+- [x] **D4** 🗑️ The stray `target/` at the repo root deleted — 🤖 🟢
 - [ ] **D5** 🐘 *(optional)* One run on a real PostgreSQL via `SPRING_DATASOURCE_URL` — 👥 🟡
   1. Install PostgreSQL, create the database `agents`
   2. Add the `org.postgresql:postgresql` driver to `pom.xml`

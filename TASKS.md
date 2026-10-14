@@ -25,10 +25,10 @@ Done and left, side by side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md) · [`BAC
 | ⚙️ **Backend** | 🟡 5 agents · **5 AI providers with failover** · uploads · H2 storage · login · Phase 7 to go |
 | 🔐 **Login** | 🟢 Real session login · **sign-up + login against MongoDB** (`AUTH_USERS` is gone) |
 | 🍃 **Accounts DB** | 🟢 MongoDB set up and checked — [checklist](#-mongodb-accounts--manual-setup), code explained in [`DATABASE.md`](DATABASE.md) |
-| 🧪 **Tests** | 🟢 Backend: 146 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 69 passing (`npm test`) |
+| 🧪 **Tests** | 🟢 Backend: 148 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 69 passing (`npm test`) |
 | 📚 **Docs** | 🟢 Match the code — `README.md` (quick start, sign-up, API, troubleshooting), `BACKEND.md`, `Frontend/README.md` · per side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md), [`BACKEND_STATUS.md`](BACKEND_STATUS.md) |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: B docs (`38f3d89` · `a6713ba` · `4f51843`) |
+| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: D housekeeping (`4fc3299` · `40275f3`) |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -159,12 +159,14 @@ flowchart LR
 
 ### 🧹 D · Backend housekeeping
 
-- [ ] **D1** 📏 The `413` names the limit (*"The file is larger than 20 MB"*), not Spring's *"Maximum upload size
-  exceeded"* — `ApiExceptionHandler` — 🤖 🟢
-- [ ] **D2** 🌶️ Remove Lombok: no code uses it, and on Java 25 it causes `sun.misc.Unsafe` warnings and VS Code
-  errors — `pom.xml` — 🤖 🟢
-- [ ] **D3** 🧾 `pom.xml`: fill in or remove the empty `<name/>`, `<description/>`, `<licenses>`, `<developers>`, `<scm>` — 🤖 🟢
-- [ ] **D4** 🗑️ Delete the stray `target/` folder at the repo root (old build output) — 🤖 🟢
+- [x] **D1** 📏 The `413` names the limit: *"The file is larger than 20 MB. Attach a smaller one."* (read from
+  `spring.servlet.multipart.max-file-size`), not Spring's *"Maximum upload size exceeded"* — `ApiExceptionHandler` —
+  🤖 🟢 · **Checked on a running server:** a 21 MB upload → that `413` as problem+json; a small file → `201` · 💾 `4fc3299`
+- [x] **D2** 🌶️ Lombok removed (dependency and its compiler-plugin block): no code used it · clean build, no
+  warnings — `pom.xml` — 🤖 🟢
+- [x] **D3** 🧾 `pom.xml`: `<name>` and `<description>` filled in; the empty `<url>`, `<licenses>`, `<developers>`,
+  `<scm>` placeholders removed (add a license with **D6**) — 🤖 🟢 · 💾 D2 + D3 `40275f3`
+- [x] **D4** 🗑️ The stray `target/` at the repo root deleted (empty folders from Sep 19) — 🤖 🟢
 - [ ] **D5** 🐘 *(optional)* Run once on a real PostgreSQL (`SPRING_DATASOURCE_URL`); `schema.sql` is written for it
   but only H2 is tested — 👥 🟡
 - [ ] **D6** ⚖️ *(optional)* Add a `LICENSE` — your choice of license — 👤 🟢
@@ -357,7 +359,7 @@ flowchart LR
 ```
 
 - ➡️ 🐘 (to-do **D5**) Run once on a real Postgres (set `SPRING_DATASOURCE_URL`); the schema is written for it but only H2 is tested
-- ➡️ 📏 (to-do **D1**) The `413` message is Spring's *"Maximum upload size exceeded"*; it could name the 20 MB limit
+- ✅ 📏 (to-do **D1**, Oct 14) The `413` now says *"The file is larger than 20 MB"*
 
 ### 🔐 Phase 5 — Login
 

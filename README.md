@@ -12,7 +12,7 @@
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)](Frontend/package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?logo=typescript&logoColor=white)](Frontend/package.json)
 [![MongoDB](https://img.shields.io/badge/MongoDB-accounts-47A248?logo=mongodb&logoColor=white)](DATABASE.md)
-[![Tests](https://img.shields.io/badge/tests-146%20%2B%2069%20passing-34d399)](#-checks)
+[![Tests](https://img.shields.io/badge/tests-148%20%2B%2069%20passing-34d399)](#-checks)
 
 </div>
 
@@ -164,7 +164,7 @@ names match [`Frontend/src/types.ts`](Frontend/src/types.ts).
 
 ```bash
 cd Backend
-.\mvnw test        # 146 tests — no AI key needed; MongoDB must be running
+.\mvnw test        # 148 tests — no AI key needed; MongoDB must be running
 
 cd Frontend
 npm test           # 69 tests — no backend needed
