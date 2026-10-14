@@ -6,16 +6,19 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.project.multi_agent_ai_platform.agent.core.InvalidAgentRequestException;
@@ -39,6 +42,13 @@ import com.project.multi_agent_ai_platform.user.UsernameTakenException;
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+	/** The upload limit, so a too-large file is told what it is (1 MB is Spring Boot's own default). */
+	private final DataSize maxFileSize;
+
+	public ApiExceptionHandler(@Value("${spring.servlet.multipart.max-file-size:1MB}") DataSize maxFileSize) {
+		this.maxFileSize = maxFileSize;
+	}
 
 	@ExceptionHandler(UnknownAgentException.class)
 	ProblemDetail unknownAgent(UnknownAgentException ex) {
@@ -151,6 +161,22 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 		ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Invalid request",
 				detail.isEmpty() ? "The request is not valid." : detail);
 		return handleExceptionInternal(ex, problem, headers, HttpStatus.BAD_REQUEST, request);
+	}
+
+	/**
+	 * A file over the upload limit. Spring's own answer only says "Maximum upload size exceeded";
+	 * this names the limit, e.g. {@code The file is larger than 20 MB.}
+	 */
+	@Override
+	protected ResponseEntity<Object> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex,
+			HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+		ProblemDetail problem = problem(HttpStatus.valueOf(status.value()), "File too large",
+				"The file is larger than " + readable(maxFileSize) + ". Attach a smaller one.");
+		return handleExceptionInternal(ex, problem, headers, status, request);
+	}
+
+	private static String readable(DataSize size) {
+		return size.toMegabytes() >= 1 ? size.toMegabytes() + " MB" : size.toKilobytes() + " KB";
 	}
 
 	/** Sign-up with a username that is already registered. */
