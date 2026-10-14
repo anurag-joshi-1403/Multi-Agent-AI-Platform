@@ -6,7 +6,7 @@ import { MOCK_AGENTS, MOCK_PLATFORM, mockDeleteDocument, mockRun, mockUploadDocu
 /**
  * Backend contract (see BACKEND.md):
  *
- *   POST   /api/auth/signup              <- {username, password} -> AuthUser (creates the account, starts a session)
+ *   POST   /api/auth/signup              <- {username, password, inviteCode?} -> AuthUser (creates the account, starts a session)
  *   POST   /api/auth/login               <- {username, password} -> AuthUser (starts a session)
  *   POST   /api/auth/logout              (ends the session)
  *   GET    /api/auth/me                  -> AuthUser, or 401 without a session
@@ -312,10 +312,15 @@ export async function login(username: string, password: string): Promise<AuthUse
   }
 }
 
-/** Create an account in the backend's database and start a session, like `login`. */
-export async function signup(username: string, password: string): Promise<AuthUser> {
+/**
+ * Create an account in the backend's database and start a session, like `login`. `inviteCode` is
+ * sent only when given: the backend asks for one only when it is set up to (`403` otherwise).
+ */
+export async function signup(username: string, password: string, inviteCode?: string): Promise<AuthUser> {
+  const code = inviteCode?.trim()
+  const body = JSON.stringify(code ? { username, password, inviteCode: code } : { username, password })
   try {
-    return toAuthUser(await http<unknown>('/auth/signup', { method: 'POST', body: JSON.stringify({ username, password }) }))
+    return toAuthUser(await http<unknown>('/auth/signup', { method: 'POST', body }))
   } catch (err) {
     throw unreachable(err)
   }

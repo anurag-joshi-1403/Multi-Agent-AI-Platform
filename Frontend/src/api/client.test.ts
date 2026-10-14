@@ -290,6 +290,36 @@ describe('a 401 sends you to the login page', () => {
   })
 })
 
+describe('sign-up', () => {
+  const created = () => json(201, { username: 'anna' })
+  const sentBody = () => JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))
+
+  it('sends the invite code only when one was typed', async () => {
+    serve({ 'POST /api/auth/signup': created })
+
+    await client.signup('anna', 'a-long-password', '  let-me-in ')
+    expect(sentBody()).toEqual({ username: 'anna', password: 'a-long-password', inviteCode: 'let-me-in' })
+
+    await client.signup('anna', 'a-long-password', '   ')
+    expect(sentBody()).toEqual({ username: 'anna', password: 'a-long-password' })
+
+    await client.signup('anna', 'a-long-password')
+    expect(sentBody()).toEqual({ username: 'anna', password: 'a-long-password' })
+  })
+
+  it("shows the backend's words when an invite code is required", async () => {
+    serve({
+      'POST /api/auth/signup': () =>
+        problem(403, 'Invite code required', 'Sign-up needs a valid invite code. Ask whoever runs this console for one.'),
+    })
+
+    await expect(client.signup('anna', 'a-long-password')).rejects.toMatchObject({
+      status: 403,
+      message: 'Sign-up needs a valid invite code. Ask whoever runs this console for one.',
+    })
+  })
+})
+
 describe('error messages', () => {
   it("shows the backend's problem detail, with its title", async () => {
     const detail = 'Authentication with Groq failed. Set GROQ_API_KEY in Backend/.env and restart the backend.'

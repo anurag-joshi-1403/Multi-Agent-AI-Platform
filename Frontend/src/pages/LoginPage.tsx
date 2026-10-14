@@ -23,7 +23,7 @@ import type { Theme } from '../hooks/useTheme'
 interface Props {
   onLogin: (username: string, password: string) => Promise<void>
   /** Create an account in the backend's database, then sign in. */
-  onSignup: (username: string, password: string) => Promise<void>
+  onSignup: (username: string, password: string, inviteCode?: string) => Promise<void>
   /** Set when the first session check itself failed (backend unreachable). Shown as a hint, not an
    * error, since it isn't the result of anything the person did. */
   checkError: string | null
@@ -97,6 +97,7 @@ export function LoginPage({ onLogin, onSignup, checkError, theme, onToggleTheme 
   const remembered = loadString(STORAGE_KEYS.rememberUser)
   const [username, setUsername] = useState(remembered ?? '')
   const [password, setPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(remembered !== null)
   const [error, setError] = useState<string | null>(null)
@@ -194,7 +195,8 @@ export function LoginPage({ onLogin, onSignup, checkError, theme, onToggleTheme 
     setError(null)
     setNotice(null)
     try {
-      await (mode === 'signup' ? onSignup : onLogin)(user, password)
+      if (mode === 'signup') await onSignup(user, password, inviteCode)
+      else await onLogin(user, password)
       saveString(STORAGE_KEYS.rememberUser, remember ? user : null)
     } catch (err) {
       setError(err instanceof Error ? err.message : mode === 'signup' ? 'Sign-up failed' : 'Sign-in failed')
@@ -346,6 +348,24 @@ export function LoginPage({ onLogin, onSignup, checkError, theme, onToggleTheme 
                 </button>
               </span>
             </label>
+
+            {mode === 'signup' && (
+              <label className="ap-field">
+                <span className="ap-label">Invite code</span>
+                <span className="ap-input-wrap">
+                  <IconKey className="ap-input-icon" />
+                  <input
+                    className="ap-input"
+                    type="text"
+                    autoComplete="off"
+                    placeholder="Only if you were given one"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    disabled={busy}
+                  />
+                </span>
+              </label>
+            )}
 
             <div className="ap-row">
               <label className="ap-check">

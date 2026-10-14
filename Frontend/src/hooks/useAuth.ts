@@ -10,8 +10,8 @@ export interface AuthApi {
   /** Set only when the session check failed outright (backend unreachable), not for "not signed in". */
   checkError: string | null
   login: (username: string, password: string) => Promise<void>
-  /** Create an account, then sign straight in. */
-  signup: (username: string, password: string) => Promise<void>
+  /** Create an account, then sign straight in. `inviteCode` when the backend asks for one. */
+  signup: (username: string, password: string, inviteCode?: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -58,8 +58,8 @@ export function useAuth(): AuthApi {
     setStatus('authenticated')
   }, [])
 
-  const signup = useCallback(async (username: string, password: string) => {
-    const u = await apiSignup(username, password)
+  const signup = useCallback(async (username: string, password: string, inviteCode?: string) => {
+    const u = await apiSignup(username, password, inviteCode)
     setUser(u)
     setCheckError(null)
     setStatus('authenticated')
