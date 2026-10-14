@@ -11,7 +11,7 @@
 [![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)](Frontend/vite.config.ts)
 [![Deps](https://img.shields.io/badge/runtime%20deps-react%20only-34d399)](#-at-a-glance)
 [![Checks](https://img.shields.io/badge/lint%20%2B%20build-passing-34d399)](#-checks)
-[![Tests](https://img.shields.io/badge/tests-69%20passing-34d399)](#-checks)
+[![Tests](https://img.shields.io/badge/tests-71%20passing-34d399)](#-checks)
 
 </div>
 
@@ -30,8 +30,8 @@
 | 🔌 **Talks to** | The Spring Boot backend through Vite's `/api` proxy — or a built-in **simulation** when it can't |
 | 💾 **Keeps in the browser** | Chats, theme, settings (`localStorage`, keys starting with `maap.`) |
 | ✅ **Done** | 12 steps — everything below in [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 10 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | 🟢 Everything pushed — latest: B docs (`4f51843`) |
+| 🧩 **Left** | 8 small pieces — see [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — latest: E1 invite code field (`0c280f8`) |
 
 ---
 
@@ -201,7 +201,7 @@ Frontend/src/
 |---|---|
 | `npm run lint` (ESLint, React 19 rules) | 🟢 passing |
 | `npm run build` (type-check + bundle) | 🟢 passing — ~308 kB JS, ~50 kB CSS |
-| `npm test` (Vitest) | 🟢 69 passing in 7 files — `lib/`, `hooks/` and `api/client.ts`, no backend or browser needed |
+| `npm test` (Vitest) | 🟢 71 passing in 7 files — `lib/`, `hooks/` and `api/client.ts`, no backend or browser needed |
 
 > ⚠️ **Right now in your browser:** *Simulation mode* is on (`maap.simulate = true`), so replies are simulated even
 > though the backend is up. Settings → turn *Simulation mode* off → *Apply & reconnect*. The two red `401`s on
@@ -289,8 +289,10 @@ flowchart LR
 
 ### 🔒 Safe to share
 
-- [ ] **E1** 🎟️ *(UI half)* An **invite code** field in sign-up mode, once the backend asks for one — 🤖 🟢
-- [ ] **E5** 🙈 Check that no key sits in a `VITE_*` variable — every visitor can read those — 🤖 🟢
+- [x] **E1** 🎟️ *(UI half)* An **Invite code** field in sign-up mode (*"Only if you were given one"*), sent only when
+  filled in; the backend's `403` message shows in the form — 🤖 🟢 · 💾 `0c280f8`
+- [x] **E5** 🙈 No key in a `VITE_*` variable: no `.env` in `Frontend/`, only `VITE_API_BASE`, no key in the built
+  bundle — 🤖 🟢
 
 ### 🌊 F · New features
 

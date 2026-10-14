@@ -9,7 +9,7 @@
 [![Java](https://img.shields.io/badge/Java-25-f89820?logo=openjdk&logoColor=white)](Backend/pom.xml)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6db33f?logo=springboot&logoColor=white)](Backend/pom.xml)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.1-6db33f)](Backend/pom.xml)
-[![Tests](https://img.shields.io/badge/tests-148%20passing-34d399)](#-checks)
+[![Tests](https://img.shields.io/badge/tests-159%20passing-34d399)](#-checks)
 [![H2](https://img.shields.io/badge/H2-files%20%2B%20memory-1f6feb)](#-where-data-lives)
 [![MongoDB](https://img.shields.io/badge/MongoDB-accounts-47A248?logo=mongodb&logoColor=white)](#-where-data-lives)
 
@@ -28,12 +28,12 @@
 | 🤖 **Agents** | 5 — General · Coding · Research · Summarizer · Document |
 | ☁️ **AI providers** | 5 with automatic failover — Groq → OpenRouter → Gemini → OpenAI → Claude (order from `AI_PROVIDERS`) |
 | 🔌 **Endpoints** | 12 under `/api` + `/actuator/health` |
-| 🔐 **Login** | Session cookie · sign-up and accounts in **MongoDB** · BCrypt passwords |
+| 🔐 **Login** | Session cookie · sign-up and accounts in **MongoDB** · BCrypt passwords · optional invite code · 5 attempts a minute |
 | 🗄️ **Storage** | Uploads + chat memory in an **H2 file** (`Backend/data/`) · accounts in **MongoDB** |
-| 🧪 **Tests** | 148 passing (no AI key or network needed; account tests need MongoDB running) |
+| 🧪 **Tests** | 159 passing (no AI key or network needed; account tests need MongoDB running) |
 | ✅ **Done** | Phases 0–6 + MongoDB accounts + edit rewind — [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 18 small pieces — [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | 🟢 Everything pushed — latest: D housekeeping (`4fc3299` · `40275f3`) |
+| 🧩 **Left** | 16 small pieces — [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — latest: E1 invite code (`b20569c`) · E2 rate limits (`748a8fa`) |
 
 ---
 
@@ -147,8 +147,8 @@ sequenceDiagram
 
 | Method | Path | Needs a session | Answers |
 |---|---|---|---|
-| `POST` | `/api/auth/signup` | ❌ | `201` `{username}` · `409` taken · `400` invalid |
-| `POST` | `/api/auth/login` | ❌ | `200` `{username}` · `401` |
+| `POST` | `/api/auth/signup` | ❌ | `201` `{username}` · `409` taken · `400` invalid · `403` invite code · `429` too many |
+| `POST` | `/api/auth/login` | ❌ | `200` `{username}` · `401` · `429` too many |
 | `POST` | `/api/auth/logout` | ❌ | `204` |
 | `GET` | `/api/auth/me` | ✅ | `200` `{username}` · `401` |
 | `GET` | `/api/agents` · `/api/agents/{id}` | ✅ | agent list / one agent |
@@ -176,6 +176,7 @@ sequenceDiagram
 | `AI_PROVIDERS` | failover order (empty = `groq,openrouter,google-genai,openai,anthropic`) |
 | `GEMINI_MODEL` · `GROQ_MODEL` · `OPENROUTER_MODEL` · `OPENAI_MODEL` · `ANTHROPIC_MODEL` | change a model |
 | `MONGODB_URI` | accounts database (default `mongodb://localhost:27017/agents`) |
+| `SIGNUP_INVITE_CODE` | sign-up needs this code (empty = anyone who can reach the console may sign up) |
 | `SPRING_DATASOURCE_URL` / `_USERNAME` / `_PASSWORD` | a different SQL database instead of the H2 file |
 
 ### 📁 What's where
@@ -196,7 +197,7 @@ Backend/src/main/resources/   application.properties · schema.sql
 
 | Check | Result |
 |---|---|
-| `.\mvnw test` | 🟢 **148 passing** in 28 test classes |
+| `.\mvnw test` | 🟢 **159 passing** in 32 test classes |
 | Without a key or network | 🟢 agents run against a stub model; provider errors are built in the tests |
 | Needs MongoDB running | `AuthIntegrationTest`, `MongoUserStoreTest` (database `agents_test`) |
 | Real runs (not just tests) | 🟢 every phase was checked against a running server, through the frontend's proxy |
@@ -214,7 +215,7 @@ flowchart LR
     classDef later fill:#e5e7eb,stroke:#6b7280,color:#1f2937
     classDef done fill:#bbf7d0,stroke:#15803d,color:#14532d
     N["🏁 Now<br/>A1 A4 A5"] --> DOC["✅ Docs<br/>B1–B5"] --> HK["✅ Tidy<br/>D1–D4 · D5 optional"]
-    HK --> SAFE["🔒 Safe to share<br/>E1–E4"]
+    HK --> SAFE["🔒 Safe to share<br/>✅ E1 E2 · E3 E4 next"]
     SAFE --> STR["🌊 Streaming<br/>F1 F2"]
     SAFE --> MORE["🧭 Features<br/>F4 F6 F7 F8 F9"]
     STR --> SHIP["🐳 Ship<br/>G1 G3 G4"]
@@ -252,18 +253,20 @@ flowchart LR
 
 ### 🔒 E · Safe to share — before anyone but you can reach it
 
-- [ ] **E1** 🎟️ Sign-up needs an **invite code**, so strangers can't spend your AI credits — 🤖 🟡
-  1. `platform.signup.code=${SIGNUP_CODE:}` setting (empty = sign-up open, as today)
-  2. `SignupRequest`: an optional `code` field
-  3. `AuthController.signup`: a wrong or missing code → `403` problem+json
-  4. Tests: no code / wrong code / right code · then the frontend field (**E1**, UI half)
-- [ ] **E2** 🧱 **Rate limits** on login and sign-up — 🤖 🟡
-  1. A small counter per IP (e.g. 5 tries a minute) in a servlet filter on `/api/auth/*`
-  2. Over the limit → `429` problem+json with *"Too many attempts, wait a minute"*
-  3. Tests: the 6th try in a minute is refused, the next minute works
+- [x] **E1** 🎟️ Sign-up needs an **invite code**, so strangers can't spend your AI credits — 🤖 🟡 · 💾 `b20569c`
+  1. ✅ `platform.signup.invite-code=${SIGNUP_INVITE_CODE:}` (empty = sign-up open, as before)
+  2. ✅ `SignupRequest`: an optional `inviteCode` · `SignupGate` compares it in constant time
+  3. ✅ Missing or wrong → `403` problem+json, checked **before** the username (no `409` hints for strangers)
+  4. ✅ Tests: no code / wrong / right, and taken names stay hidden · the frontend field is done too
+- [x] **E2** 🧱 **Rate limits** on login and sign-up — 🤖 🟡 · 💾 `748a8fa`
+  1. ✅ `AuthRateLimitFilter`: 5 attempts a minute per client address (`platform.auth.max-attempts-per-minute`)
+  2. ✅ Over the limit → `429` problem+json with `Retry-After`: *"Too many attempts from this address. Try again in N seconds."*
+  3. ✅ Tests: the 6th try is refused, another address isn't, a new minute starts afresh, other routes never count
+  4. ✅ Checked in a real browser together with E1 (see `TASKS.md`)
 - [ ] **E3** 🔐 **HTTPS** + `Secure` cookie — 👥 🟡
   1. Pick how it's served: a reverse proxy with TLS (with **G3**) or Spring's own `server.ssl.*`
-  2. `server.servlet.session.cookie.secure=true` and `server.forward-headers-strategy=framework`
+  2. `server.servlet.session.cookie.secure=true` and `server.forward-headers-strategy=framework` (also makes E2's
+     limit see each visitor's address, not the proxy's)
   3. Check: the cookie shows `Secure` and login works over `https://`
 - [ ] **E4** 🌍 Only then accept other machines: change `server.address=127.0.0.1` — 👥 🟢
 

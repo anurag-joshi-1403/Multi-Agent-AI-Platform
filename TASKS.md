@@ -23,12 +23,12 @@ Done and left, side by side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md) · [`BAC
 |---|---|
 | 🖥️ **Frontend** | 🟢 Finished — lint ✅ build ✅ tests ✅ (69), runs on its own with **simulated** replies |
 | ⚙️ **Backend** | 🟡 5 agents · **5 AI providers with failover** · uploads · H2 storage · login · Phase 7 to go |
-| 🔐 **Login** | 🟢 Real session login · **sign-up + login against MongoDB** (`AUTH_USERS` is gone) |
+| 🔐 **Login** | 🟢 Real session login · **sign-up + login against MongoDB** · optional invite code · 5 attempts a minute per address |
 | 🍃 **Accounts DB** | 🟢 MongoDB set up and checked — [checklist](#-mongodb-accounts--manual-setup), code explained in [`DATABASE.md`](DATABASE.md) |
-| 🧪 **Tests** | 🟢 Backend: 148 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 69 passing (`npm test`) |
+| 🧪 **Tests** | 🟢 Backend: 159 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 71 passing (`npm test`) |
 | 📚 **Docs** | 🟢 Match the code — `README.md` (quick start, sign-up, API, troubleshooting), `BACKEND.md`, `Frontend/README.md` · per side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md), [`BACKEND_STATUS.md`](BACKEND_STATUS.md) |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: D housekeeping (`4fc3299` · `40275f3`) |
+| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: E1 · E2 (`b20569c` · `748a8fa` · `0c280f8`) |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -173,11 +173,19 @@ flowchart LR
 
 ### 🔒 E · Safe to share — before anyone but you can reach it
 
-- [ ] **E1** 🎟️ Sign-up needs an invite code (`SIGNUP_CODE` in `.env`), so strangers can't spend your AI credits — 🤖 🟡
-- [ ] **E2** 🧱 Rate limits on login and sign-up (e.g. 5 tries a minute per IP) — 🤖 🟡
-- [ ] **E3** 🔐 HTTPS and the `Secure` session cookie — depends on where it runs (see **G3**) — 👥 🟡
+- [x] **E1** 🎟️ Sign-up needs an invite code once `SIGNUP_INVITE_CODE` is set in `Backend/.env` (empty = open, as
+  before): missing or wrong → `403`, checked before the username, so a stranger can't tell which names are taken;
+  compared in constant time · an *Invite code* field in the sign-up form — 🤖 🟡 · 💾 `b20569c` `0c280f8`
+- [x] **E2** 🧱 Rate limits: 5 login + sign-up attempts a minute per client address
+  (`platform.auth.max-attempts-per-minute`), then `429` with `Retry-After` and a plain-words message — 🤖 🟡 ·
+  **Checked in a real browser:** no code or a wrong one → `403` and the form says *"Sign-up needs a valid
+  invite code…"* · the right code → signed in · then wrong passwords: `401`, `401`, and the 6th attempt `429`
+  *"Too many attempts from this address. Try again in 53 seconds."* · 💾 `748a8fa`
+- [ ] **E3** 🔐 HTTPS and the `Secure` session cookie — depends on where it runs (see **G3**) — 👥 🟡 · behind a proxy,
+  also trust its forwarded address (`server.forward-headers-strategy`), or E2's limit counts every visitor as one
 - [ ] **E4** 🌍 Only then open it to other machines: change `server.address=127.0.0.1` — 👥 🟢
-- [ ] **E5** 🙈 Check that no key sits in a `VITE_*` variable (every visitor can read those) — 🤖 🟢
+- [x] **E5** 🙈 No key in a `VITE_*` variable: no `.env` in `Frontend/`, the only one is `VITE_API_BASE`, and the built
+  bundle has no key — 🤖 🟢
 
 ### 🌊 F · New features (Phase 7)
 

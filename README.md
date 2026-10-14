@@ -12,7 +12,7 @@
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)](Frontend/package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?logo=typescript&logoColor=white)](Frontend/package.json)
 [![MongoDB](https://img.shields.io/badge/MongoDB-accounts-47A248?logo=mongodb&logoColor=white)](DATABASE.md)
-[![Tests](https://img.shields.io/badge/tests-148%20%2B%2069%20passing-34d399)](#-checks)
+[![Tests](https://img.shields.io/badge/tests-159%20%2B%2071%20passing-34d399)](#-checks)
 
 </div>
 
@@ -164,10 +164,10 @@ names match [`Frontend/src/types.ts`](Frontend/src/types.ts).
 
 ```bash
 cd Backend
-.\mvnw test        # 148 tests — no AI key needed; MongoDB must be running
+.\mvnw test        # 159 tests — no AI key needed; MongoDB must be running
 
 cd Frontend
-npm test           # 69 tests — no backend needed
+npm test           # 71 tests — no backend needed
 npm run lint
 npm run build      # type-check + production bundle
 ```
@@ -180,6 +180,8 @@ npm run build      # type-check + production bundle
 |---|---|
 | 🍃 Backend stops after ~30 s: *Application run failed … Timed out while waiting for a server* | MongoDB isn't running. Start it (Windows: the **MongoDB** service), then start the backend again. |
 | 🚪 Login page: *Could not reach the backend* | The backend isn't running — signing in always needs it. |
+| 🎟️ Sign-up: *Sign-up needs a valid invite code* | This console has `SIGNUP_INVITE_CODE` set: ask whoever runs it for the code. |
+| 🧱 *Too many attempts from this address* | 5 login or sign-up attempts a minute: wait the seconds it says. |
 | 🟠 *Backend offline* banner, replies tagged **simulated** | The backend stopped while you were signed in. Start it, then click **Retry**. |
 | 🎭 Replies say *Simulation mode is on* | You switched it on: Settings → turn **Simulation mode** off → **Apply & reconnect**. |
 | ❗ *Set GEMINI_API_KEY in Backend/.env* | The key is missing or wrong. Fix `Backend/.env` and restart the backend. |
@@ -195,8 +197,9 @@ npm run build      # type-check + production bundle
 
 - 🔑 **A Gemini key is in the public git history** (`eebf0a8`). Revoke it in
   [Google AI Studio](https://aistudio.google.com/apikey) — to-do A1. Keys belong only in `Backend/.env`.
-- 🏠 **The backend listens on `127.0.0.1` only.** Before others can reach it, add an invite code for
-  sign-up, rate limits and HTTPS (to-dos E1–E4) — otherwise anyone could sign up and spend your AI credits.
+- 🏠 **The backend listens on `127.0.0.1` only.** Before others can reach it: set `SIGNUP_INVITE_CODE` in
+  `Backend/.env` (otherwise anyone could sign up and spend your AI credits), and add HTTPS (to-dos E3, E4).
+- 🧱 **Login and sign-up are rate-limited:** 5 attempts a minute per address, then a `429`.
 - 🔐 **Passwords** are stored as BCrypt hashes. The session cookie is `HttpOnly` and `SameSite=Strict`.
 - 🙈 **Never put keys in the frontend.** Anything in a `VITE_*` variable is visible to every visitor.
 - 💾 **Chats are stored unencrypted** in the browser's `localStorage`, one list per account — anyone
