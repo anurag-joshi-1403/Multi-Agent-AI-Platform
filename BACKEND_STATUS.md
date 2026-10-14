@@ -9,7 +9,7 @@
 [![Java](https://img.shields.io/badge/Java-25-f89820?logo=openjdk&logoColor=white)](Backend/pom.xml)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6db33f?logo=springboot&logoColor=white)](Backend/pom.xml)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.1-6db33f)](Backend/pom.xml)
-[![Tests](https://img.shields.io/badge/tests-163%20passing-34d399)](#-checks)
+[![Tests](https://img.shields.io/badge/tests-176%20passing-34d399)](#-checks)
 [![H2](https://img.shields.io/badge/H2-files%20%2B%20memory-1f6feb)](#-where-data-lives)
 [![MongoDB](https://img.shields.io/badge/MongoDB-accounts-47A248?logo=mongodb&logoColor=white)](#-where-data-lives)
 
@@ -27,13 +27,13 @@
 |---|---|
 | 🤖 **Agents** | 5 — General · Coding · Research · Summarizer · Document |
 | ☁️ **AI providers** | 5 with automatic failover — Groq → OpenRouter → Gemini → OpenAI → Claude (order from `AI_PROVIDERS`) |
-| 🔌 **Endpoints** | 12 under `/api` + `/actuator/health` |
+| 🔌 **Endpoints** | 13 under `/api` + `/actuator/health` |
 | 🔐 **Login** | Session cookie · sign-up and accounts in **MongoDB** · BCrypt passwords · optional invite code · 5 attempts a minute |
 | 🗄️ **Storage** | Uploads + chat memory in an **H2 file** (`Backend/data/`) · accounts in **MongoDB** |
-| 🧪 **Tests** | 163 passing (no AI key or network needed; account tests need MongoDB running) |
+| 🧪 **Tests** | 176 passing (no AI key or network needed; account tests need MongoDB running) |
 | ✅ **Done** | Phases 0–6 + MongoDB accounts + edit rewind — [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 15 small pieces — [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | 🟢 Everything pushed — latest: E3 HTTPS (`c6e261f`) |
+| 🧩 **Left** | 14 small pieces — [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — latest: F1 streaming (`b0d2b8e` · `a281c7b`) |
 
 ---
 
@@ -153,6 +153,7 @@ sequenceDiagram
 | `GET` | `/api/auth/me` | ✅ | `200` `{username}` · `401` |
 | `GET` | `/api/agents` · `/api/agents/{id}` | ✅ | agent list / one agent |
 | `POST` | `/api/agents/{id}/run` | ✅ | reply + metadata + `conversationId` + `elapsedMs` |
+| `POST` | `/api/agents/{id}/stream` | ✅ | server-sent events: `chunk` `{text}` … then `done` (the `/run` body) · `error` |
 | `GET` | `/api/platform` | ✅ | provider chain, model, limits |
 | `POST` | `/api/documents` | ✅ | `201` summary · `415` unsupported · `413` too large |
 | `DELETE` | `/api/documents/{id}` · `/api/conversations/{id}` | ✅ | `204` |
@@ -200,7 +201,7 @@ Backend/src/main/resources/   application.properties · schema.sql
 
 | Check | Result |
 |---|---|
-| `.\mvnw test` | 🟢 **163 passing** in 33 test classes |
+| `.\mvnw test` | 🟢 **176 passing** in 33 test classes |
 | Without a key or network | 🟢 agents run against a stub model; provider errors are built in the tests |
 | Needs MongoDB running | `AuthIntegrationTest`, `MongoUserStoreTest` (database `agents_test`) |
 | Real runs (not just tests) | 🟢 every phase was checked against a running server, through the frontend's proxy |
@@ -219,7 +220,7 @@ flowchart LR
     classDef done fill:#bbf7d0,stroke:#15803d,color:#14532d
     N["🏁 Now<br/>A1 A4 A5"] --> DOC["✅ Docs<br/>B1–B5"] --> HK["✅ Tidy<br/>D1–D4 · D5 optional"]
     HK --> SAFE["🔒 Safe to share<br/>✅ E1 E2 E3 · E4 yours"]
-    SAFE --> STR["🌊 Streaming<br/>F1 F2"]
+    SAFE --> STR["🌊 Streaming<br/>✅ F1 · F2 next"]
     SAFE --> MORE["🧭 Features<br/>F4 F6 F7 F8 F9"]
     STR --> SHIP["🐳 Ship<br/>G1 G3 G4"]
     MORE --> SHIP
@@ -278,11 +279,14 @@ flowchart LR
 
 ### 🌊 F · New features
 
-- [ ] **F1** 🌊 **Streaming** endpoint — 🤖 🟡
-  1. `POST /api/agents/{id}/stream` returning server-sent events (`text/event-stream`)
-  2. `LlmAgent`: a `stream(...)` twin of `complete(...)` using `ChatClient … .stream()` (memory and files included)
-  3. Events: one per chunk of text, then a last one with metadata (provider, model, tokens)
-  4. Tests with a streaming stub model
+- [x] **F1** 🌊 **Streaming** endpoint — 🤖 🟡 · 💾 `b0d2b8e` `a281c7b`
+  1. ✅ `POST /api/agents/{id}/stream` → server-sent events (`text/event-stream`, up to 5 minutes)
+  2. ✅ `LlmAgent.stream()` next to `handle()`: each agent now gives its `turn()` (what to send) and `describe()`
+     (facts from the answer), so both share the prompt, memory, files and metadata
+  3. ✅ Events: `chunk` `{text}` per piece, then `done` with the `/run` body; a provider failure → `error` event;
+     a bad request is still a normal `404`/`400` · a failed or stopped stream leaves no question in memory
+  4. ✅ Tests with a streaming stub model (13 new) · checked on a real server: Gemini's pieces arrive as written
+  5. ⏭️ For now from the first provider with a key; switching provider is **F2**
 - [ ] **F2** 🔁 Streaming **with failover** — 🤖 🟡
   1. `ProviderChain.stream(...)`: try the next provider if one fails **before** the first chunk
   2. A failure after the first chunk ends the stream with an error event (no mixing of two answers)

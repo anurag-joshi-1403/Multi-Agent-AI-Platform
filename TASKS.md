@@ -25,10 +25,10 @@ Done and left, side by side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md) · [`BAC
 | ⚙️ **Backend** | 🟡 5 agents · **5 AI providers with failover** · uploads · H2 storage · login · Phase 7 to go |
 | 🔐 **Login** | 🟢 Real session login · **sign-up + login against MongoDB** · optional invite code · 5 attempts a minute per address |
 | 🍃 **Accounts DB** | 🟢 MongoDB set up and checked — [checklist](#-mongodb-accounts--manual-setup), code explained in [`DATABASE.md`](DATABASE.md) |
-| 🧪 **Tests** | 🟢 Backend: 163 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 71 passing (`npm test`) |
+| 🧪 **Tests** | 🟢 Backend: 176 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 71 passing (`npm test`) |
 | 📚 **Docs** | 🟢 Match the code — `README.md` (quick start, sign-up, API, troubleshooting), `BACKEND.md`, `Frontend/README.md` · per side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md), [`BACKEND_STATUS.md`](BACKEND_STATUS.md) |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: E3 HTTPS (`c6e261f`) |
+| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: F1 streaming (`b0d2b8e` · `a281c7b`) |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -195,7 +195,14 @@ flowchart LR
 
 ### 🌊 F · New features (Phase 7)
 
-- [ ] **F1** 🌊 Streaming, backend: `POST /api/agents/{id}/stream` sends the reply as it is written (one provider) — 🤖 🟡
+- [x] **F1** 🌊 Streaming, backend: `POST /api/agents/{id}/stream` sends the reply as it is written — server-sent
+  events: `chunk` `{text}` pieces, then `done` with the same body `/run` returns; a provider failure once it has
+  started is an `error` event; a bad request (unknown agent, no file for the Document Agent) is a normal `404`/`400`
+  · every agent streams: each now says what to send (`turn`) and what to note about the answer (`describe`), so a
+  call and a stream share the prompt and the metadata · memory works like a call, and a failed or stopped stream
+  leaves no question behind — 🤖 🟡 · **Checked on a real server with Gemini:** 8 pieces between 1.19 s and
+  1.69 s, `done` at 1.75 s with provider, model and tokens; the next streamed turn remembered the first ·
+  💾 agent split `b0d2b8e` · streaming `a281c7b`
 - [ ] **F2** 🔁 Streaming with failover: switch provider if one fails before the first word — 🤖 🟡
 - [ ] **F3** 🖥️ Streaming in the Playground: replies appear word by word — 🤖 🟡
 - [ ] **F4** 🧭 Auto-pick, backend: choose the right agent from the message — 🤖 🟡

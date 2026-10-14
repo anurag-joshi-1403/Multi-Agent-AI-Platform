@@ -12,7 +12,7 @@
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)](Frontend/package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?logo=typescript&logoColor=white)](Frontend/package.json)
 [![MongoDB](https://img.shields.io/badge/MongoDB-accounts-47A248?logo=mongodb&logoColor=white)](DATABASE.md)
-[![Tests](https://img.shields.io/badge/tests-163%20%2B%2071%20passing-34d399)](#-checks)
+[![Tests](https://img.shields.io/badge/tests-176%20%2B%2071%20passing-34d399)](#-checks)
 
 </div>
 
@@ -149,6 +149,7 @@ Multi-Agent-AI-Platform/
 | `GET` | `/api/auth/me` | "Am I signed in?" — `401` when not |
 | `GET` | `/api/agents` | The agent list — also the "Backend online" check |
 | `POST` | `/api/agents/{id}/run` | Send a message |
+| `POST` | `/api/agents/{id}/stream` | The same, the reply sent as it is written (server-sent events) |
 | `GET` | `/api/platform` | Provider chain, model and limits (Settings) |
 | `POST` · `DELETE` | `/api/documents` · `/api/documents/{id}` | Attach or remove a file |
 | `DELETE` | `/api/conversations/{id}` | Forget a chat on the server |
@@ -164,7 +165,7 @@ names match [`Frontend/src/types.ts`](Frontend/src/types.ts).
 
 ```bash
 cd Backend
-.\mvnw test        # 163 tests — no AI key needed; MongoDB must be running
+.\mvnw test        # 176 tests — no AI key needed; MongoDB must be running
 
 cd Frontend
 npm test           # 71 tests — no backend needed
