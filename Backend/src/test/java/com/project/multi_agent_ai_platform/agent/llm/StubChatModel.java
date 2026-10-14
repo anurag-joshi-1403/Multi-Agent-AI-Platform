@@ -22,6 +22,8 @@ import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 import com.project.multi_agent_ai_platform.document.DocumentStore;
 import com.project.multi_agent_ai_platform.document.FakeDocumentStore;
 
+import reactor.core.publisher.Flux;
+
 /**
  * A {@link ChatModel} for tests: records every prompt it receives and answers with a canned reply
  * plus realistic metadata (model name, token usage, finish reason). No key, no network.
@@ -42,6 +44,36 @@ public class StubChatModel implements ChatModel {
 		Generation generation = new Generation(new AssistantMessage(reply),
 				ChatGenerationMetadata.builder().finishReason("STOP").build());
 		return ChatResponse.builder().generations(List.of(generation)).metadata(metadata).build();
+	}
+
+	/** The pieces a stream sends; {@code null} cuts the reply after each space ("stub ", "reply"). */
+	public List<String> chunks;
+
+	/** When set, a stream sends {@link #failAfter} pieces, then fails with this. */
+	public RuntimeException streamError;
+
+	public int failAfter;
+
+	/** Streams the reply in pieces; the last one carries the token usage and finish reason, as providers do. */
+	@Override
+	public Flux<ChatResponse> stream(Prompt prompt) {
+		prompts.add(prompt);
+		List<String> pieces = chunks != null ? chunks : List.of(reply.split("(?<= )"));
+		Flux<ChatResponse> flux = Flux.range(0, pieces.size()).map(i -> chunk(pieces.get(i), i == pieces.size() - 1));
+		return streamError == null ? flux : flux.take(failAfter).concatWith(Flux.error(streamError));
+	}
+
+	private static ChatResponse chunk(String text, boolean last) {
+		ChatResponseMetadata.Builder metadata = ChatResponseMetadata.builder().model("stub-model");
+		if (last) {
+			metadata.usage(new DefaultUsage(10, 5));
+		}
+		ChatGenerationMetadata generation = last ? ChatGenerationMetadata.builder().finishReason("STOP").build()
+				: ChatGenerationMetadata.builder().build();
+		return ChatResponse.builder()
+			.generations(List.of(new Generation(new AssistantMessage(text), generation)))
+			.metadata(metadata.build())
+			.build();
 	}
 
 	public Prompt lastPrompt() {

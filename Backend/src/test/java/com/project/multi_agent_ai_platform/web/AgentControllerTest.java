@@ -7,12 +7,15 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -24,11 +27,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.google.genai.errors.ApiException;
 import com.google.genai.errors.GenAiIOException;
 import com.project.multi_agent_ai_platform.agent.core.Agent;
+import com.project.multi_agent_ai_platform.agent.core.AgentEvent;
 import com.project.multi_agent_ai_platform.agent.core.AgentOrchestrator;
 import com.project.multi_agent_ai_platform.agent.core.AgentParameter;
 import com.project.multi_agent_ai_platform.agent.core.AgentRegistry;
@@ -39,6 +44,8 @@ import com.project.multi_agent_ai_platform.agent.core.UnknownAgentException;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
 import com.project.multi_agent_ai_platform.config.ProviderChainException;
 import com.project.multi_agent_ai_platform.config.ProviderFailure;
+
+import reactor.core.publisher.Flux;
 
 @WebMvcTest(AgentController.class)
 @Import(SignedInWebTest.class)
@@ -287,5 +294,89 @@ class AgentControllerTest {
 			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 			.andExpect(jsonPath("$.detail").value(containsString("Check the backend logs")))
 			.andExpect(content().string(org.hamcrest.Matchers.not(containsString("secret internals"))));
+	}
+
+	// --- streaming ---------------------------------------------------------------------------
+
+	/** Runs a stream to its end; each event as "name data". */
+	private List<String> streamed(String agentId, String body) throws Exception {
+		MvcResult started = mvc.perform(post("/api/agents/" + agentId + "/stream").contentType(MediaType.APPLICATION_JSON)
+			.accept(MediaType.TEXT_EVENT_STREAM)
+			.content(body)).andExpect(request().asyncStarted()).andReturn();
+		String text = mvc.perform(asyncDispatch(started))
+			.andExpect(status().isOk())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		List<String> events = new ArrayList<>();
+		for (String block : text.split("\n\n")) {
+			String name = "";
+			String data = "";
+			for (String line : block.split("\n")) {
+				if (line.startsWith("event:")) {
+					name = line.substring("event:".length()).trim();
+				}
+				else if (line.startsWith("data:")) {
+					data = line.substring("data:".length());
+				}
+			}
+			if (!name.isEmpty()) {
+				events.add(name + " " + data);
+			}
+		}
+		return events;
+	}
+
+	@Test
+	void streamSendsThePiecesThenTheAnswerWithItsConversation() throws Exception {
+		when(orchestrator.stream(eq("general"), any())).thenReturn(Flux.just(new AgentEvent.Chunk("Hel"),
+				new AgentEvent.Chunk("lo"), new AgentEvent.Done(new AgentResponse("general", "Hello", Map.of("provider", "Groq")))));
+
+		List<String> events = streamed("general", "{\"conversationId\":\"conv-1\",\"message\":\"hi\"}");
+
+		assertThat(events).hasSize(3);
+		assertThat(events.get(0)).isEqualTo("chunk {\"text\":\"Hel\"}");
+		assertThat(events.get(1)).isEqualTo("chunk {\"text\":\"lo\"}");
+		assertThat(events.get(2)).startsWith("done ")
+			.contains("\"content\":\"Hello\"", "\"conversationId\":\"conv-1\"", "\"provider\":\"Groq\"", "\"elapsedMs\":");
+		ArgumentCaptor<AgentRequest> sent = ArgumentCaptor.forClass(AgentRequest.class);
+		verify(orchestrator).stream(eq("general"), sent.capture());
+		assertThat(sent.getValue().message()).isEqualTo("hi");
+	}
+
+	@Test
+	void aProviderFailureMidStreamEndsWithAnErrorEvent() throws Exception {
+		when(orchestrator.stream(eq("general"), any())).thenReturn(Flux.concat(Flux.just(new AgentEvent.Chunk("Hel")),
+				Flux.error(new ProviderChainException(List.of(ProviderFailure.of(GEMINI,
+						new ApiException(429, "RESOURCE_EXHAUSTED", "Quota exceeded.")))))));
+
+		List<String> events = streamed("general", "{\"message\":\"hi\"}");
+
+		assertThat(events).hasSize(2);
+		assertThat(events.get(0)).isEqualTo("chunk {\"text\":\"Hel\"}");
+		assertThat(events.get(1)).startsWith("error ")
+			.contains("\"status\":503", "\"title\":\"LLM provider temporarily unavailable\"");
+	}
+
+	@Test
+	void aStreamForAnUnknownAgentIsStillA404ProblemDetail() throws Exception {
+		when(orchestrator.stream(eq("nope"), any())).thenThrow(new UnknownAgentException("nope"));
+
+		mvc.perform(post("/api/agents/nope/stream").contentType(MediaType.APPLICATION_JSON)
+			.accept(MediaType.TEXT_EVENT_STREAM)
+			.content("{\"message\":\"hello\"}"))
+			.andExpect(status().isNotFound())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.title").value("Unknown agent"));
+	}
+
+	@Test
+	void aBlankMessageNeverStartsAStream() throws Exception {
+		mvc.perform(post("/api/agents/general/stream").contentType(MediaType.APPLICATION_JSON)
+			.accept(MediaType.TEXT_EVENT_STREAM)
+			.content("{\"message\":\"  \"}")).andExpect(status().isBadRequest());
+
+		verifyNoInteractions(orchestrator);
 	}
 }

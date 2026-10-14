@@ -123,6 +123,17 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 				"Something went wrong on the server. Check the backend logs.");
 	}
 
+	/**
+	 * The problem body for a failure after a stream has started, when the status can no longer
+	 * change: the stream ends with it as an {@code error} event instead.
+	 */
+	public ProblemDetail problemFor(Throwable ex) {
+		if (ex instanceof ProviderChainException chain) {
+			return providersFailed(chain);
+		}
+		return unexpected(ex instanceof Exception e ? e : new RuntimeException(ex));
+	}
+
 	private static ProblemDetail oneProvider(ProviderFailure f) {
 		String name = f.provider().displayName();
 		return switch (f.kind()) {

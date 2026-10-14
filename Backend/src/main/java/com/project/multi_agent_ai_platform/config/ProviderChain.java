@@ -11,6 +11,8 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 
+import reactor.core.publisher.Flux;
+
 /**
  * The chat model every agent talks to. It tries each provider that has a key, in
  * {@code AI_PROVIDERS} order, and returns the first answer; when one fails (bad key, rate limit,
@@ -95,6 +97,28 @@ public class ProviderChain implements ChatModel {
 			}
 		}
 		throw new ProviderChainException(failures);
+	}
+
+	/**
+	 * Streams the answer from the first provider with a key, each chunk labelled like a call's answer.
+	 * A failure ends the stream as a {@link ProviderChainException}, the same as a call that failed.
+	 * Switching provider when one fails before its first chunk is to-do F2.
+	 */
+	@Override
+	public Flux<ChatResponse> stream(Prompt prompt) {
+		Prompt plain = new Prompt(prompt.getInstructions());
+		Link link = links.stream().filter(Link::active).findFirst().orElse(null);
+		if (link == null) {
+			return Flux.error(new ProviderChainException(List.of()));
+		}
+		return link.model()
+			.stream(plain)
+			.map(response -> label(response, link.provider(), List.of()))
+			.onErrorMap(ex -> !(ex instanceof ProviderChainException), ex -> {
+				ProviderFailure failure = ProviderFailure.of(link.provider(), ex);
+				log.warn("AI provider failed while streaming: {}", failure.summary());
+				return new ProviderChainException(List.of(failure));
+			});
 	}
 
 	/** The same response, with the provider that answered and any providers that failed first. */

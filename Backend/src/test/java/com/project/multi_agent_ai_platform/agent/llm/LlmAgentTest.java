@@ -16,8 +16,10 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 
+import com.project.multi_agent_ai_platform.agent.core.AgentEvent;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
+import com.project.multi_agent_ai_platform.agent.core.InvalidAgentRequestException;
 import com.project.multi_agent_ai_platform.config.LlmProvider;
 import com.project.multi_agent_ai_platform.config.ProviderChain;
 import com.project.multi_agent_ai_platform.document.FakeDocumentStore;
@@ -46,9 +48,25 @@ class LlmAgentTest {
 
 			@Override
 			protected Turn turn(AgentRequest request) {
+				if (request.message().equals("refuse")) {
+					throw new InvalidAgentRequestException("This agent refuses that request.");
+				}
 				return new Turn(request.message(), attached(request));
 			}
 		};
+	}
+
+	/** Collects a stream: the text of its chunks, and its final answer. */
+	private record Streamed(List<String> chunks, AgentResponse done) {
+
+		static Streamed of(List<AgentEvent> events) {
+			List<String> chunks = events.stream()
+				.filter(AgentEvent.Chunk.class::isInstance)
+				.map(e -> ((AgentEvent.Chunk) e).text())
+				.toList();
+			assertThat(events.getLast()).isInstanceOf(AgentEvent.Done.class);
+			return new Streamed(chunks, ((AgentEvent.Done) events.getLast()).response());
+		}
 	}
 
 	private LlmAgent agent() {
@@ -259,6 +277,72 @@ class LlmAgentTest {
 
 		assertThat(model.lastPrompt().getSystemMessage().getText()).isEqualTo("sys");
 		assertThat(response.metadata()).doesNotContainKey("documentNames");
+	}
+
+	// --- streaming ---------------------------------------------------------------------------
+
+	@Test
+	void aStreamSendsThePiecesThenTheSameAnswerACallGives() {
+		Streamed streamed = Streamed.of(agent().stream(AgentRequest.of("hi")).collectList().block());
+
+		assertThat(streamed.chunks()).containsExactly("stub ", "reply");
+		assertThat(streamed.done().agentId()).isEqualTo("test");
+		assertThat(streamed.done().content()).isEqualTo("stub reply");
+		assertThat(streamed.done().metadata()).containsEntry("model", "stub-model")
+			.containsEntry("finishReason", "STOP")
+			.containsEntry("tokens", Map.of("prompt", 10, "completion", 5, "total", 15));
+		assertThat(types(model.lastPrompt())).containsExactly(MessageType.SYSTEM, MessageType.USER);
+	}
+
+	@Test
+	void aStreamThroughTheProviderChainNamesTheProvider() {
+		ProviderChain chain = new ProviderChain(List.of(new ProviderChain.Link(StubChatModel.provider(), model)));
+
+		AgentResponse done = Streamed.of(agent(chain, memory, "sys").stream(AgentRequest.of("hi")).collectList().block())
+			.done();
+
+		assertThat(done.metadata()).containsEntry("provider", "Google Gemini");
+	}
+
+	@Test
+	void aStreamedTurnIsRememberedLikeACall() {
+		LlmAgent agent = agent();
+		model.reply = "answer one";
+		agent.stream(new AgentRequest("conv-s", "first", Map.of())).blockLast();
+		model.reply = "answer two";
+		agent.handle(new AgentRequest("conv-s", "second", Map.of()));
+
+		assertThat(model.lastPrompt().getInstructions()).extracting(Message::getText)
+			.containsExactly("sys", "first", "answer one", "second");
+	}
+
+	@Test
+	void aStreamThatFailsHalfwayLeavesNoQuestionBehind() {
+		LlmAgent agent = agent();
+		agent.handle(new AgentRequest("conv-f", "fine", Map.of()));
+		model.streamError = new IllegalStateException("connection reset");
+		model.failAfter = 1;
+
+		assertThatThrownBy(() -> agent.stream(new AgentRequest("conv-f", "broken", Map.of())).blockLast())
+			.hasMessageContaining("connection reset");
+		assertThat(memory.get("conv-f")).extracting(Message::getText).containsExactly("fine", "stub reply");
+	}
+
+	@Test
+	void aStoppedStreamLeavesNoQuestionBehind() {
+		model.chunks = List.of("one ", "two ", "three");
+
+		// The reader stops after the first piece, as the console's Stop button will
+		agent().stream(new AgentRequest("conv-c", "stop me", Map.of())).take(1).blockLast();
+
+		assertThat(memory.get("conv-c")).isEmpty();
+	}
+
+	@Test
+	void aRequestTheAgentRefusesFailsBeforeTheStreamStarts() {
+		assertThatThrownBy(() -> agent().stream(AgentRequest.of("refuse")))
+			.isInstanceOf(InvalidAgentRequestException.class);
+		assertThat(model.prompts).isEmpty();
 	}
 
 	// --- attribute helpers -------------------------------------------------------------------

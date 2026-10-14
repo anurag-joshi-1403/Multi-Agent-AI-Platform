@@ -137,4 +137,38 @@ class ProviderChainTest {
 		// with no key anywhere, the first listed provider is still the one to name
 		assertThat(new ProviderChain(List.of(link(OPENAI_NO_KEY, null))).primary()).isEqualTo(OPENAI_NO_KEY);
 	}
+
+	// --- streaming ---------------------------------------------------------------------------
+
+	@Test
+	void aStreamComesFromTheFirstProviderWithAKeyAndEveryPieceIsNamed() {
+		StubChatModel gemini = new StubChatModel();
+		ProviderChain chain = new ProviderChain(List.of(link(OPENAI_NO_KEY, null), link(GEMINI, gemini)));
+
+		List<ChatResponse> chunks = chain.stream(PROMPT).collectList().block();
+
+		assertThat(chunks).extracting(c -> c.getResult().getOutput().getText()).containsExactly("stub ", "reply");
+		assertThat(chunks).allSatisfy(c -> assertThat(c.getMetadata().<String>get(ProviderChain.PROVIDER)).isEqualTo("Google Gemini"));
+		assertThat(gemini.prompts).hasSize(1);
+	}
+
+	@Test
+	void aFailingStreamEndsLikeAFailedCall() {
+		StubChatModel gemini = new StubChatModel();
+		gemini.streamError = new ApiException(401, "UNAUTHENTICATED", "API key not valid");
+		ProviderChain chain = new ProviderChain(List.of(link(GEMINI, gemini)));
+
+		assertThatThrownBy(() -> chain.stream(PROMPT).blockLast())
+			.isInstanceOfSatisfying(ProviderChainException.class, ex -> assertThat(ex.getFailures())
+				.extracting(ProviderFailure::kind)
+				.containsExactly(ProviderFailure.Kind.BAD_KEY));
+	}
+
+	@Test
+	void withoutAnyKeyAStreamFailsAtOnce() {
+		ProviderChain chain = new ProviderChain(List.of(link(OPENAI_NO_KEY, null)));
+
+		assertThatThrownBy(() -> chain.stream(PROMPT).blockLast())
+			.isInstanceOfSatisfying(ProviderChainException.class, ex -> assertThat(ex.getFailures()).isEmpty());
+	}
 }

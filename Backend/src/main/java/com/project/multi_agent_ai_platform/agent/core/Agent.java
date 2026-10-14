@@ -2,6 +2,8 @@ package com.project.multi_agent_ai_platform.agent.core;
 
 import java.util.List;
 
+import reactor.core.publisher.Flux;
+
 /**
  * Contract every agent implements.
  * <p>
@@ -35,4 +37,13 @@ public interface Agent {
 
 	/** Handle one request synchronously. Implementations should not swallow provider errors. */
 	AgentResponse handle(AgentRequest request);
+
+	/**
+	 * Handle one request, streaming the answer as it is written: {@link AgentEvent.Chunk}s, then one
+	 * {@link AgentEvent.Done}. Problems with the request itself are thrown here, before the stream
+	 * starts; provider errors end the stream. By default the whole answer arrives at once.
+	 */
+	default Flux<AgentEvent> stream(AgentRequest request) {
+		return Flux.defer(() -> Flux.just(new AgentEvent.Done(handle(request))));
+	}
 }

@@ -3,6 +3,7 @@ package com.project.multi_agent_ai_platform.agent.llm;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -15,11 +16,15 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 
 import com.project.multi_agent_ai_platform.agent.core.Agent;
+import com.project.multi_agent_ai_platform.agent.core.AgentEvent;
 import com.project.multi_agent_ai_platform.agent.core.AgentRequest;
 import com.project.multi_agent_ai_platform.agent.core.AgentResponse;
 import com.project.multi_agent_ai_platform.config.ProviderChain;
 import com.project.multi_agent_ai_platform.document.AttachmentResolver;
 import com.project.multi_agent_ai_platform.document.StoredDocument;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Base class for agents that answer by calling the chat model.
@@ -36,7 +41,8 @@ import com.project.multi_agent_ai_platform.document.StoredDocument;
  * answer about them, and their text never enters conversation memory.
  * <p>
  * A subclass says what to send ({@link #turn}) and what to note about the finished answer
- * ({@link #describe}); this class runs the call ({@link #handle}).
+ * ({@link #describe}); this class runs it in one call ({@link #handle}) or streamed
+ * ({@link #stream}), so both send the same prompt and report the same metadata.
  */
 public abstract class LlmAgent implements Agent {
 
@@ -109,6 +115,30 @@ public abstract class LlmAgent implements Agent {
 		}
 	}
 
+	/**
+	 * As {@link #handle}, streamed: the text as it is written, then the finished answer with the same
+	 * metadata. The {@link #turn} is built at once, so a bad request still throws before any event.
+	 */
+	@Override
+	public final Flux<AgentEvent> stream(AgentRequest request) {
+		Turn turn = turn(request);
+		Flux<AgentEvent> events = Flux.defer(() -> {
+			StringBuilder text = new StringBuilder();
+			AtomicReference<ChatResponse> last = new AtomicReference<>();
+			Flux<AgentEvent> chunks = prompt(request, turn).stream()
+				.chatResponse()
+				.doOnNext(last::set)
+				.map(LlmAgent::textOf)
+				.filter(piece -> !piece.isEmpty())
+				.doOnNext(text::append)
+				.map(AgentEvent.Chunk::new);
+			return chunks.concatWith(Mono.fromSupplier(
+					() -> new AgentEvent.Done(finish(request, turn, text.toString(), last.get()))));
+		});
+		// As with a call: an answer that failed or was stopped must not leave its question in memory
+		return events.doOnError(ex -> forgetDanglingUserTurn(request)).doOnCancel(() -> forgetDanglingUserTurn(request));
+	}
+
 	private ChatClient.ChatClientRequestSpec prompt(AgentRequest request, Turn turn) {
 		ChatClient.ChatClientRequestSpec spec = chatClient.prompt();
 		String fileBlock = attachments.block(turn.attached());
@@ -152,7 +182,7 @@ public abstract class LlmAgent implements Agent {
 		return id == null || id.isBlank() ? null : id;
 	}
 
-	/** The answer's text, or {@code ""} for a response without any. */
+	/** The answer's text, or {@code ""} for a response (or stream chunk) without any. */
 	private static String textOf(ChatResponse response) {
 		Generation generation = response == null ? null : response.getResult();
 		if (generation == null || generation.getOutput() == null || generation.getOutput().getText() == null) {
@@ -161,7 +191,7 @@ public abstract class LlmAgent implements Agent {
 		return generation.getOutput().getText();
 	}
 
-	/** Provider facts for the Inspector. */
+	/** Provider facts for the Inspector; for a stream, from its last chunk. */
 	private static Map<String, Object> metadataOf(ChatResponse response, AgentRequest request) {
 		// AgentResponse copies this with Map.copyOf, which rejects null values: only add what is present.
 		Map<String, Object> metadata = new LinkedHashMap<>();

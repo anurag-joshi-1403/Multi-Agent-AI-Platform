@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import reactor.core.publisher.Flux;
+
 /**
  * Single entry point for running an agent.
  * <p>
@@ -28,5 +30,17 @@ public class AgentOrchestrator {
 		long elapsedMs = (System.nanoTime() - started) / 1_000_000;
 		log.info("agent={} conversationId={} elapsedMs={}", agentId, request.conversationId(), elapsedMs);
 		return response;
+	}
+
+	/**
+	 * As {@link #dispatch}, streamed (see {@link Agent#stream}). An unknown agent or a request the
+	 * agent can't handle throws here, before any event.
+	 */
+	public Flux<AgentEvent> stream(String agentId, AgentRequest request) {
+		Agent agent = registry.get(agentId);
+		long started = System.nanoTime();
+		return agent.stream(request)
+			.doOnComplete(() -> log.info("agent={} conversationId={} elapsedMs={} streamed", agentId,
+					request.conversationId(), (System.nanoTime() - started) / 1_000_000));
 	}
 }
