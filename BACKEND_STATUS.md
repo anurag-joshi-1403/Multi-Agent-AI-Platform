@@ -9,7 +9,7 @@
 [![Java](https://img.shields.io/badge/Java-25-f89820?logo=openjdk&logoColor=white)](Backend/pom.xml)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6db33f?logo=springboot&logoColor=white)](Backend/pom.xml)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0.1-6db33f)](Backend/pom.xml)
-[![Tests](https://img.shields.io/badge/tests-159%20passing-34d399)](#-checks)
+[![Tests](https://img.shields.io/badge/tests-163%20passing-34d399)](#-checks)
 [![H2](https://img.shields.io/badge/H2-files%20%2B%20memory-1f6feb)](#-where-data-lives)
 [![MongoDB](https://img.shields.io/badge/MongoDB-accounts-47A248?logo=mongodb&logoColor=white)](#-where-data-lives)
 
@@ -30,10 +30,10 @@
 | 🔌 **Endpoints** | 12 under `/api` + `/actuator/health` |
 | 🔐 **Login** | Session cookie · sign-up and accounts in **MongoDB** · BCrypt passwords · optional invite code · 5 attempts a minute |
 | 🗄️ **Storage** | Uploads + chat memory in an **H2 file** (`Backend/data/`) · accounts in **MongoDB** |
-| 🧪 **Tests** | 159 passing (no AI key or network needed; account tests need MongoDB running) |
+| 🧪 **Tests** | 163 passing (no AI key or network needed; account tests need MongoDB running) |
 | ✅ **Done** | Phases 0–6 + MongoDB accounts + edit rewind — [Work done](#-work-done--step-by-step) |
-| 🧩 **Left** | 16 small pieces — [Remaining work](#-remaining-work--small-pieces) |
-| 💾 **Git** | 🟢 Everything pushed — latest: E1 invite code (`b20569c`) · E2 rate limits (`748a8fa`) |
+| 🧩 **Left** | 15 small pieces — [Remaining work](#-remaining-work--small-pieces) |
+| 💾 **Git** | 🟢 Everything pushed — latest: E3 HTTPS (`c6e261f`) |
 
 ---
 
@@ -177,6 +177,9 @@ sequenceDiagram
 | `GEMINI_MODEL` · `GROQ_MODEL` · `OPENROUTER_MODEL` · `OPENAI_MODEL` · `ANTHROPIC_MODEL` | change a model |
 | `MONGODB_URI` | accounts database (default `mongodb://localhost:27017/agents`) |
 | `SIGNUP_INVITE_CODE` | sign-up needs this code (empty = anyone who can reach the console may sign up) |
+| `FORWARD_HEADERS_STRATEGY` | `native` behind an HTTPS reverse proxy (unset = no proxy) |
+| `SSL_ENABLED` · `SSL_KEY_STORE` · `SSL_KEY_STORE_PASSWORD` | Spring Boot serves HTTPS from a PKCS12 keystore |
+| `SERVER_ADDRESS` | who may connect (unset = this machine only; `0.0.0.0` = every network) |
 | `SPRING_DATASOURCE_URL` / `_USERNAME` / `_PASSWORD` | a different SQL database instead of the H2 file |
 
 ### 📁 What's where
@@ -197,7 +200,7 @@ Backend/src/main/resources/   application.properties · schema.sql
 
 | Check | Result |
 |---|---|
-| `.\mvnw test` | 🟢 **159 passing** in 32 test classes |
+| `.\mvnw test` | 🟢 **163 passing** in 33 test classes |
 | Without a key or network | 🟢 agents run against a stub model; provider errors are built in the tests |
 | Needs MongoDB running | `AuthIntegrationTest`, `MongoUserStoreTest` (database `agents_test`) |
 | Real runs (not just tests) | 🟢 every phase was checked against a running server, through the frontend's proxy |
@@ -215,7 +218,7 @@ flowchart LR
     classDef later fill:#e5e7eb,stroke:#6b7280,color:#1f2937
     classDef done fill:#bbf7d0,stroke:#15803d,color:#14532d
     N["🏁 Now<br/>A1 A4 A5"] --> DOC["✅ Docs<br/>B1–B5"] --> HK["✅ Tidy<br/>D1–D4 · D5 optional"]
-    HK --> SAFE["🔒 Safe to share<br/>✅ E1 E2 · E3 E4 next"]
+    HK --> SAFE["🔒 Safe to share<br/>✅ E1 E2 E3 · E4 yours"]
     SAFE --> STR["🌊 Streaming<br/>F1 F2"]
     SAFE --> MORE["🧭 Features<br/>F4 F6 F7 F8 F9"]
     STR --> SHIP["🐳 Ship<br/>G1 G3 G4"]
@@ -263,12 +266,15 @@ flowchart LR
   2. ✅ Over the limit → `429` problem+json with `Retry-After`: *"Too many attempts from this address. Try again in N seconds."*
   3. ✅ Tests: the 6th try is refused, another address isn't, a new minute starts afresh, other routes never count
   4. ✅ Checked in a real browser together with E1 (see `TASKS.md`)
-- [ ] **E3** 🔐 **HTTPS** + `Secure` cookie — 👥 🟡
-  1. Pick how it's served: a reverse proxy with TLS (with **G3**) or Spring's own `server.ssl.*`
-  2. `server.servlet.session.cookie.secure=true` and `server.forward-headers-strategy=framework` (also makes E2's
-     limit see each visitor's address, not the proxy's)
-  3. Check: the cookie shows `Secure` and login works over `https://`
-- [ ] **E4** 🌍 Only then accept other machines: change `server.address=127.0.0.1` — 👥 🟢
+- [x] **E3** 🔐 **HTTPS** + `Secure` cookie, both ways, each off by default — 👥 🟡 · 💾 `c6e261f`
+  1. ✅ Behind a reverse proxy: `FORWARD_HEADERS_STRATEGY=native` — `native`, not `framework`: Tomcat trusts the
+     forwarded headers only from private and local addresses, so nobody can fake an address to dodge E2's limit
+  2. ✅ Spring Boot's own HTTPS: `SSL_ENABLED=true`, `SSL_KEY_STORE` (PKCS12), `SSL_KEY_STORE_PASSWORD`
+  3. ✅ No cookie setting needed: Tomcat marks the session cookie `Secure` whenever the request is https
+  4. ✅ Checked: `ForwardedHeadersIntegrationTest` (a real server, 4 tests) · Spring's HTTPS with a self-signed
+     certificate: `UP`, cookie `Secure; HttpOnly; SameSite=Strict`, plain `http` refused · defaults unchanged
+  5. ⏭️ The proxy itself (Caddy or nginx) comes with **G2**/**G3**
+- [ ] **E4** 🌍 Only then accept other machines: `SERVER_ADDRESS=0.0.0.0` (a setting now) — 👤 🟢
 
 ### 🌊 F · New features
 

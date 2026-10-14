@@ -12,7 +12,7 @@
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)](Frontend/package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?logo=typescript&logoColor=white)](Frontend/package.json)
 [![MongoDB](https://img.shields.io/badge/MongoDB-accounts-47A248?logo=mongodb&logoColor=white)](DATABASE.md)
-[![Tests](https://img.shields.io/badge/tests-159%20%2B%2071%20passing-34d399)](#-checks)
+[![Tests](https://img.shields.io/badge/tests-163%20%2B%2071%20passing-34d399)](#-checks)
 
 </div>
 
@@ -164,7 +164,7 @@ names match [`Frontend/src/types.ts`](Frontend/src/types.ts).
 
 ```bash
 cd Backend
-.\mvnw test        # 159 tests — no AI key needed; MongoDB must be running
+.\mvnw test        # 163 tests — no AI key needed; MongoDB must be running
 
 cd Frontend
 npm test           # 71 tests — no backend needed
@@ -197,8 +197,11 @@ npm run build      # type-check + production bundle
 
 - 🔑 **A Gemini key is in the public git history** (`eebf0a8`). Revoke it in
   [Google AI Studio](https://aistudio.google.com/apikey) — to-do A1. Keys belong only in `Backend/.env`.
-- 🏠 **The backend listens on `127.0.0.1` only.** Before others can reach it: set `SIGNUP_INVITE_CODE` in
-  `Backend/.env` (otherwise anyone could sign up and spend your AI credits), and add HTTPS (to-dos E3, E4).
+- 🏠 **The backend listens on `127.0.0.1` only.** Before others can reach it (`SERVER_ADDRESS=0.0.0.0`), set
+  `SIGNUP_INVITE_CODE` in `Backend/.env` — otherwise anyone could sign up and spend your AI credits — and turn on HTTPS.
+- 🔐 **HTTPS, two ways** (both off by default): behind an HTTPS reverse proxy, set `FORWARD_HEADERS_STRATEGY=native`;
+  or let Spring Boot serve it with `SSL_ENABLED=true`, `SSL_KEY_STORE` (a PKCS12 file) and `SSL_KEY_STORE_PASSWORD`.
+  Either way the session cookie becomes `Secure`.
 - 🧱 **Login and sign-up are rate-limited:** 5 attempts a minute per address, then a `429`.
 - 🔐 **Passwords** are stored as BCrypt hashes. The session cookie is `HttpOnly` and `SameSite=Strict`.
 - 🙈 **Never put keys in the frontend.** Anything in a `VITE_*` variable is visible to every visitor.

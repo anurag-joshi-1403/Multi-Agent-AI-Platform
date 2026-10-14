@@ -25,10 +25,10 @@ Done and left, side by side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md) · [`BAC
 | ⚙️ **Backend** | 🟡 5 agents · **5 AI providers with failover** · uploads · H2 storage · login · Phase 7 to go |
 | 🔐 **Login** | 🟢 Real session login · **sign-up + login against MongoDB** · optional invite code · 5 attempts a minute per address |
 | 🍃 **Accounts DB** | 🟢 MongoDB set up and checked — [checklist](#-mongodb-accounts--manual-setup), code explained in [`DATABASE.md`](DATABASE.md) |
-| 🧪 **Tests** | 🟢 Backend: 159 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 71 passing (`npm test`) |
+| 🧪 **Tests** | 🟢 Backend: 163 passing (no AI key or network; the account tests need MongoDB running) · Frontend: 71 passing (`npm test`) |
 | 📚 **Docs** | 🟢 Match the code — `README.md` (quick start, sign-up, API, troubleshooting), `BACKEND.md`, `Frontend/README.md` · per side: [`FRONTEND_STATUS.md`](FRONTEND_STATUS.md), [`BACKEND_STATUS.md`](BACKEND_STATUS.md) |
 | 🔑 **Secrets** | 🟡 New key is in `Backend/.env` · make sure the leaked `…Egng` (`eebf0a8`, on GitHub) is revoked |
-| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: E1 · E2 (`b20569c` · `748a8fa` · `0c280f8`) |
+| 💾 **Git** | 🟢 Everything committed and pushed to `origin/main` — latest: E3 HTTPS (`c6e261f`) |
 
 🔴 not started &nbsp;·&nbsp; 🟡 in progress &nbsp;·&nbsp; 🟢 done
 
@@ -181,9 +181,15 @@ flowchart LR
   **Checked in a real browser:** no code or a wrong one → `403` and the form says *"Sign-up needs a valid
   invite code…"* · the right code → signed in · then wrong passwords: `401`, `401`, and the 6th attempt `429`
   *"Too many attempts from this address. Try again in 53 seconds."* · 💾 `748a8fa`
-- [ ] **E3** 🔐 HTTPS and the `Secure` session cookie — depends on where it runs (see **G3**) — 👥 🟡 · behind a proxy,
-  also trust its forwarded address (`server.forward-headers-strategy`), or E2's limit counts every visitor as one
-- [ ] **E4** 🌍 Only then open it to other machines: change `server.address=127.0.0.1` — 👥 🟢
+- [x] **E3** 🔐 HTTPS, both ways, each off by default — 👥 🟡 · **a)** behind an HTTPS reverse proxy:
+  `FORWARD_HEADERS_STRATEGY=native` (Tomcat trusts the forwarded headers only from private and local addresses, so a
+  stranger can't fake one) · **b)** Spring Boot serves HTTPS: `SSL_ENABLED=true` + a PKCS12 `SSL_KEY_STORE` ·
+  either way the session cookie becomes `Secure` on its own · **Checked:** a real server behind a simulated proxy
+  (4 tests: per-visitor limits, `Secure` cookie, faked headers ignored without a proxy) and Spring's own HTTPS with
+  a self-signed certificate (`https` → `UP`, cookie `Secure; HttpOnly; SameSite=Strict`, plain `http` refused) ·
+  the proxy itself (Caddy or nginx) comes with **G2**/**G3** · 💾 `c6e261f`
+- [ ] **E4** 🌍 Only then open it to other machines: `SERVER_ADDRESS=0.0.0.0` in `Backend/.env` (a setting now, no
+  code change) — with HTTPS on and `SIGNUP_INVITE_CODE` set — 👤 🟢
 - [x] **E5** 🙈 No key in a `VITE_*` variable: no `.env` in `Frontend/`, the only one is `VITE_API_BASE`, and the built
   bundle has no key — 🤖 🟢
 
